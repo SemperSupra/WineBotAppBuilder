@@ -1,0 +1,54 @@
+name: Policy Preflight Trend Gate (Opt-in)
+
+on:
+  workflow_dispatch:
+    inputs:
+      trend_window:
+        description: "Preflight trend window size"
+        required: false
+        default: "25"
+      min_success_rate_pct:
+        description: "Minimum allowed recent success rate percentage"
+        required: false
+        default: "95"
+      max_recent_failed:
+        description: "Maximum allowed recent failed preflight events"
+        required: false
+        default: "0"
+      require_events:
+        description: "Require at least one event in window (0 or 1)"
+        required: false
+        default: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  policy-preflight-trend-gate:
+    runs-on: ubuntu-latest
+    env:
+      WBABD_POLICY_PREFLIGHT_TREND_GATE: "1"
+      WBABD_PREFLIGHT_TREND_WINDOW: ${{ github.event.inputs.trend_window || '25' }}
+      WBABD_PREFLIGHT_TREND_MIN_SUCCESS_RATE_PCT: ${{ github.event.inputs.min_success_rate_pct || '95' }}
+      WBABD_PREFLIGHT_TREND_MAX_RECENT_FAILED: ${{ github.event.inputs.max_recent_failed || '0' }}
+      WBABD_PREFLIGHT_TREND_REQUIRE_EVENTS: ${{ github.event.inputs.require_events || '1' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Run policy suite with preflight trend gate enabled
+        run: |
+          chmod +x tests/policy/run.sh
+          ./tests/policy/run.sh
+      - name: Capture preflight trend diagnostics snapshot
+        if: always()
+        run: |
+          mkdir -p artifacts/policy-preflight-trend-gate
+          chmod +x tools/wbabd
+          tools/wbabd api "{\"op\":\"preflight_trend\",\"window\":${WBABD_PREFLIGHT_TREND_WINDOW}}" > artifacts/policy-preflight-trend-gate/preflight-trend.json
+      - name: Upload preflight trend diagnostics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-preflight-trend-gate-diagnostics
+          path: artifacts/policy-preflight-trend-gate/preflight-trend.json

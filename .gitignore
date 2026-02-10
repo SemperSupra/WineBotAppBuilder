@@ -1,0 +1,21 @@
+# build artifacts
+out/
+dist/
+artifacts/
+samples/*/build/
+samples/*/out/
+samples/*/dist/
+
+# wbab runtime state and secrets
+.wbab/
+
+# local tools
+.env
+.DS_Store
+*.swp
+*.tmp
+
+# node/python/etc caches
+node_modules/
+__pycache__/
+*.pyc

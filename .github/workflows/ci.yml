@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Install lint deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint
+        run: |
+          chmod +x scripts/lint.sh
+          ./scripts/lint.sh
+
+  shell-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Run shell unit tests (mocked)
+        run: |
+          chmod +x tests/shell/run.sh
+          ./tests/shell/run.sh
+
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Run contract tests
+        run: |
+          chmod +x tests/contract/run.sh
+          ./tests/contract/run.sh
+
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Run policy tests
+        run: |
+          chmod +x tests/policy/run.sh
+          ./tests/policy/run.sh
+
+  e2e-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Run mocked e2e smoke pipeline
+        run: |
+          chmod +x tests/e2e/run.sh
+          ./tests/e2e/run.sh

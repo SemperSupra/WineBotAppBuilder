@@ -1,0 +1,123 @@
+name: Publish WBAB Images
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish-ghcr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Dockerfile hardening lint (Hadolint)
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: tools/winbuild/Dockerfile
+
+      - name: Dockerfile hardening lint (Hadolint packaging)
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: tools/packaging/Dockerfile
+
+      - name: Dockerfile hardening lint (Hadolint signing)
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: tools/signing/Dockerfile
+
+      - name: Security vulnerability gate (Trivy fs)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          format: table
+          exit-code: '1'
+
+      - name: Generate SBOM report (Trivy CycloneDX)
+        uses: aquasecurity/trivy-action@0.29.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: cyclonedx
+          output: artifacts/sbom-repo.cdx.json
+          exit-code: '0'
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Dry-check publish Dockerfiles (local/CI parity)
+        run: |
+          set -euo pipefail
+          scripts/publish/dockerfiles-drycheck.sh
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish images (if Dockerfiles exist)
+        env:
+          OWNER: ${{ github.repository_owner }}
+          TAG: ${{ github.event.release.tag_name }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          owner_lc="$(echo "${OWNER}" | tr '[:upper:]' '[:lower:]')"
+          mkdir -p artifacts
+          : > artifacts/publish-digests.txt
+
+          publish_if_exists() {
+            local dockerfile="$1"
+            local image_name="$2"
+            if [[ ! -f "${dockerfile}" ]]; then
+              echo "SKIP: missing ${dockerfile}"
+              return 0
+            fi
+
+            local image="ghcr.io/${owner_lc}/${image_name}"
+            local metadata_file="artifacts/${image_name}.metadata.json"
+            echo "Publishing ${image}:${TAG}"
+            docker buildx build \
+              --file "${dockerfile}" \
+              --tag "${image}:${TAG}" \
+              --tag "${image}:latest" \
+              --label "org.opencontainers.image.source=https://github.com/${REPO}" \
+              --label "org.opencontainers.image.revision=${SHA}" \
+              --label "org.opencontainers.image.version=${TAG}" \
+              --label "org.opencontainers.image.title=${image_name}" \
+              --provenance=true \
+              --sbom=true \
+              --metadata-file "${metadata_file}" \
+              --push \
+              .
+
+            digest="$(jq -r '.["containerimage.digest"] // empty' "${metadata_file}")"
+            if [[ -z "${digest}" ]]; then
+              echo "ERROR: missing container digest in ${metadata_file}" >&2
+              exit 1
+            fi
+            echo "${image}:${TAG}@${digest}" >> artifacts/publish-digests.txt
+          }
+
+          publish_if_exists "tools/winbuild/Dockerfile" "winebotappbuilder-winbuild"
+          publish_if_exists "tools/packaging/Dockerfile" "winebotappbuilder-packager"
+          publish_if_exists "tools/signing/Dockerfile" "winebotappbuilder-signer"
+
+      - name: Upload publish metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publish-ghcr-metadata
+          path: artifacts/**
+          if-no-files-found: warn

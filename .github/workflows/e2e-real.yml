@@ -1,0 +1,60 @@
+name: E2E Real (Opt-In)
+
+on:
+  workflow_dispatch:
+    inputs:
+      smoke_skip_install:
+        description: "Skip WineBot install step (0 requires real installer_path)"
+        required: false
+        default: "0"
+      installer_path:
+        description: "Path to real installer inside repo/workspace (required when smoke_skip_install=0)"
+        required: false
+        default: ""
+      winebot_tag:
+        description: "WineBot image tag"
+        required: false
+        default: "stable"
+      trust_dev_cert:
+        description: "Import dev cert into WineBot trust stores before install (0/1)"
+        required: false
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  e2e-real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Ensure docker compose is available
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Run real Docker/WineBot e2e pipeline
+        env:
+          WBAB_WINEBOT_IMAGE: ghcr.io/mark-e-deyoung/winebot
+          WBAB_SMOKE_SKIP_INSTALL: ${{ github.event.inputs.smoke_skip_install }}
+          WBAB_REAL_INSTALLER_PATH: ${{ github.event.inputs.installer_path }}
+          WBAB_SMOKE_TRUST_DEV_CERT: ${{ github.event.inputs.trust_dev_cert }}
+          WBAB_WINEBOT_TAG: ${{ github.event.inputs.winebot_tag }}
+        run: |
+          chmod +x tests/e2e/run-real.sh
+          ./tests/e2e/run-real.sh
+
+      - name: Upload e2e artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-real-artifacts
+          path: |
+            artifacts/**
+            out/**
+            dist/**
+          if-no-files-found: warn

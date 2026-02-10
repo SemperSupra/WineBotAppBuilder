@@ -1,0 +1,44 @@
+name: TLA Skeleton Contract (Opt-in)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tla-skeleton-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Validate TLA+ skeleton contract
+        run: |
+          chmod +x tests/policy/test_tla_idempotency_skeleton.sh
+          ./tests/policy/test_tla_idempotency_skeleton.sh
+      - name: Build formal model snapshot
+        run: |
+          mkdir -p formal-model-snapshot
+          mkdir -p formal-model-snapshot/tla
+          cp formal/tla/DaemonIdempotency.tla formal-model-snapshot/tla/
+          cp formal/tla/DaemonIdempotency.cfg formal-model-snapshot/tla/
+          cp formal/tla/DaemonIdempotencyExtended.cfg formal-model-snapshot/tla/
+          cp formal/tla/README.md formal-model-snapshot/tla/
+          cp docs/FORMAL_MODEL_HOWTO.md formal-model-snapshot/
+          cp docs/CONTRACTS.md formal-model-snapshot/
+      - name: Upload formal model snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: tla-formal-model-snapshot
+          path: formal-model-snapshot/
+          if-no-files-found: error
+      - name: Summarize formal model snapshot contents
+        run: |
+          {
+            echo "## TLA Formal Model Snapshot"
+            echo
+            echo '```text'
+            find formal-model-snapshot -maxdepth 3 -type f | sort
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"

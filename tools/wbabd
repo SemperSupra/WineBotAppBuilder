@@ -1,0 +1,854 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+from collections import deque
+import hmac
+import json
+import os
+import ssl
+import subprocess
+import sys
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
+
+from core.wbab_core import AuditLog, Executor, OperationStore, Planner, default_audit_path, default_store_path  # noqa: E402
+
+
+def usage() -> None:
+    print(
+        """wbabd - WBAB core daemon shim
+
+Usage:
+  wbabd run <op-id> <verb> [args...]
+  wbabd status <op-id>
+  wbabd plan <op-id> <verb> [args...]
+  wbabd api '<json-request>'
+  wbabd serve [--host 127.0.0.1] [--port 8787]
+"""
+    )
+
+
+def _default_preflight_status_path(root_dir: Path) -> Path:
+    p = os.environ.get("WBABD_PREFLIGHT_STATUS_PATH", "").strip()
+    if p:
+        return Path(p)
+    return root_dir / ".wbab" / "preflight-status.json"
+
+
+def _default_preflight_counters_path(root_dir: Path) -> Path:
+    p = os.environ.get("WBABD_PREFLIGHT_COUNTERS_PATH", "").strip()
+    if p:
+        return Path(p)
+    return root_dir / ".wbab" / "preflight-counters.json"
+
+
+def _write_preflight_status(root_dir: Path, payload: dict) -> None:
+    path = _default_preflight_status_path(root_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_preflight_counters(root_dir: Path, payload: dict) -> None:
+    path = _default_preflight_counters_path(root_dir)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _read_preflight_status(root_dir: Path) -> dict | None:
+    path = _default_preflight_status_path(root_dir)
+    if not path.exists():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"status": "invalid", "error": "unable to parse preflight status file", "path": str(path)}
+
+
+def _read_preflight_counters(root_dir: Path) -> dict:
+    path = _default_preflight_counters_path(root_dir)
+    if not path.exists():
+        return {"ok": 0, "failed": 0, "total": 0}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"ok": 0, "failed": 0, "total": 0}
+    if not isinstance(raw, dict):
+        return {"ok": 0, "failed": 0, "total": 0}
+    ok = raw.get("ok", 0)
+    failed = raw.get("failed", 0)
+    try:
+        ok_n = max(0, int(ok))
+        failed_n = max(0, int(failed))
+    except Exception:
+        return {"ok": 0, "failed": 0, "total": 0}
+    return {"ok": ok_n, "failed": failed_n, "total": ok_n + failed_n}
+
+
+def _update_preflight_counters(root_dir: Path, status: str, checked_at: int) -> dict:
+    counters = _read_preflight_counters(root_dir)
+    if status == "ok":
+        counters["ok"] = int(counters.get("ok", 0)) + 1
+    else:
+        counters["failed"] = int(counters.get("failed", 0)) + 1
+    counters["total"] = int(counters.get("ok", 0)) + int(counters.get("failed", 0))
+    counters["last_status"] = status
+    counters["updated_at"] = checked_at
+    _write_preflight_counters(root_dir, counters)
+    return counters
+
+
+def _resolve_preflight_audit_window(raw: object) -> int:
+    text = str(raw).strip()
+    if not text:
+        text = os.environ.get("WBABD_PREFLIGHT_AUDIT_WINDOW", "50").strip() or "50"
+    try:
+        value = int(text)
+    except ValueError as exc:
+        raise ValueError(f"invalid preflight audit window: {text}") from exc
+    if value <= 0:
+        raise ValueError("preflight audit window must be > 0")
+    return value
+
+
+def _preflight_trend_summary(root_dir: Path, raw_window: object = "") -> dict:
+    counters_path = _default_preflight_counters_path(root_dir)
+    audit_path = default_audit_path(root_dir)
+    window = _resolve_preflight_audit_window(raw_window)
+    counters = _read_preflight_counters(root_dir)
+
+    recent_statuses: deque[str] = deque(maxlen=window)
+    total_events = 0
+    if audit_path.exists():
+        with audit_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(row, dict):
+                    continue
+                if row.get("event_type") != "command.preflight":
+                    continue
+                status = str(row.get("status", "")).strip().lower()
+                if status not in {"ok", "failed"}:
+                    continue
+                total_events += 1
+                recent_statuses.append(status)
+
+    recent_ok = sum(1 for s in recent_statuses if s == "ok")
+    recent_failed = sum(1 for s in recent_statuses if s == "failed")
+    recent_total = recent_ok + recent_failed
+    cumulative_total = int(counters.get("total", 0))
+    cumulative_ok = int(counters.get("ok", 0))
+    cumulative_failed = int(counters.get("failed", 0))
+    cumulative_rate = round((cumulative_ok / cumulative_total) * 100.0, 2) if cumulative_total > 0 else 0.0
+    recent_rate = round((recent_ok / recent_total) * 100.0, 2) if recent_total > 0 else 0.0
+    try:
+        updated_at = int(counters.get("updated_at", 0))
+    except Exception:
+        updated_at = 0
+
+    return {
+        "status": "ok",
+        "generated_at": int(time.time()),
+        "paths": {"counters": str(counters_path), "audit_log": str(audit_path)},
+        "cumulative": {
+            "ok": cumulative_ok,
+            "failed": cumulative_failed,
+            "total": cumulative_total,
+            "success_rate_pct": cumulative_rate,
+            "last_status": str(counters.get("last_status", "")),
+            "updated_at": updated_at,
+        },
+        "recent_window": {
+            "window": window,
+            "events_seen": recent_total,
+            "ok": recent_ok,
+            "failed": recent_failed,
+            "success_rate_pct": recent_rate,
+        },
+        "audit_events_total_seen": total_events,
+    }
+
+
+def _json_response(
+    handler: BaseHTTPRequestHandler, code: int, payload: dict, extra_headers: dict[str, str] | None = None
+) -> None:
+    body = json.dumps(payload).encode("utf-8")
+    handler.send_response(code)
+    handler.send_header("Content-Type", "application/json")
+    handler.send_header("Content-Length", str(len(body)))
+    if extra_headers:
+        for k, v in extra_headers.items():
+            handler.send_header(k, v)
+    handler.end_headers()
+    handler.wfile.write(body)
+
+
+def _parse_body(handler: BaseHTTPRequestHandler, max_body_bytes: int) -> dict:
+    length = int(handler.headers.get("Content-Length", "0"))
+    if length <= 0:
+        return {}
+    if length > max_body_bytes:
+        raise ValueError(f"payload_too_large:{length}>{max_body_bytes}")
+    raw = handler.rfile.read(length)
+    if not raw:
+        return {}
+    return json.loads(raw.decode("utf-8"))
+
+
+def _auth_mode_for_command(cmd: str) -> str:
+    raw = os.environ.get("WBABD_AUTH_MODE", "").strip().lower()
+    if raw:
+        return raw
+    if cmd == "serve":
+        return "token"
+    return "off"
+
+
+def _resolve_api_token() -> str:
+    token = os.environ.get("WBABD_API_TOKEN", "")
+    if token:
+        return token
+    token_file = os.environ.get("WBABD_API_TOKEN_FILE", "").strip()
+    if not token_file:
+        return ""
+    try:
+        return Path(token_file).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _principal_from_env() -> str:
+    return os.environ.get("WBABD_PRINCIPAL", "").strip() or os.environ.get("WBABD_ACTOR", "unknown")
+
+
+def _principal_from_http(handler: BaseHTTPRequestHandler) -> str:
+    hdr = handler.headers.get("X-WBABD-Principal", "").strip()
+    if hdr:
+        return hdr
+    return _principal_from_env()
+
+
+def _load_authz_policy() -> dict[str, set[str]] | None:
+    policy_path = os.environ.get("WBABD_AUTHZ_POLICY_FILE", "").strip()
+    if not policy_path:
+        return None
+    try:
+        raw = json.loads(Path(policy_path).read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ValueError(f"failed to read WBABD_AUTHZ_POLICY_FILE: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid authz policy json: {exc}") from exc
+    principals = raw.get("principals")
+    if not isinstance(principals, dict):
+        raise ValueError("invalid authz policy: principals object required")
+    normalized: dict[str, set[str]] = {}
+    for principal, entry in principals.items():
+        if not isinstance(principal, str) or not principal:
+            raise ValueError("invalid authz policy: principal keys must be non-empty strings")
+        if not isinstance(entry, dict):
+            raise ValueError(f"invalid authz policy: principal '{principal}' entry must be object")
+        verbs = entry.get("verbs")
+        if not isinstance(verbs, list) or not all(isinstance(v, str) and v.strip() for v in verbs):
+            raise ValueError(f"invalid authz policy: principal '{principal}' requires verbs[]")
+        normalized[principal] = {v.strip() for v in verbs}
+    return normalized
+
+
+def _authorize_operation(
+    authz_policy: dict[str, set[str]] | None, principal: str, op: str, verb: str = ""
+) -> tuple[bool, str]:
+    if authz_policy is None:
+        return True, "policy_off"
+    effective = set(authz_policy.get("*", set()))
+    effective.update(authz_policy.get(principal, set()))
+
+    required: set[str] = set()
+    if op == "health":
+        required = {"health"}
+    elif op == "preflight_status":
+        required = {"preflight_status", "status"}
+    elif op == "preflight_trend":
+        required = {"preflight_trend", "preflight_status", "status"}
+    elif op == "status":
+        required = {"status"}
+    elif op == "plan":
+        if not verb:
+            return False, "missing_verb"
+        required = {"plan", "plan:*", f"plan:{verb}", verb}
+    elif op == "run":
+        if not verb:
+            return False, "missing_verb"
+        required = {"run", "run:*", f"run:{verb}", verb}
+    else:
+        return False, f"unsupported_op:{op}"
+
+    if "*" in effective or (effective & required):
+        return True, "allowed"
+    return False, f"missing_permission:{op}:{verb or '-'}"
+
+
+def _authorize_http(handler: BaseHTTPRequestHandler, auth_mode: str, expected_token: str) -> tuple[bool, dict]:
+    if auth_mode == "off":
+        return True, {}
+    if auth_mode != "token":
+        return False, {"error": f"unsupported auth mode: {auth_mode}"}
+    authz = handler.headers.get("Authorization", "")
+    prefix = "Bearer "
+    if not authz.startswith(prefix):
+        return False, {"error": "missing_bearer_token"}
+    presented = authz[len(prefix) :].strip()
+    if not expected_token or not presented or not hmac.compare_digest(presented, expected_token):
+        return False, {"error": "invalid_token"}
+    return True, {}
+
+
+def _http_max_body_bytes() -> int:
+    raw = os.environ.get("WBABD_HTTP_MAX_BODY_BYTES", "1048576").strip()
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ValueError(f"invalid WBABD_HTTP_MAX_BODY_BYTES: {raw}") from exc
+    if value <= 0:
+        raise ValueError("WBABD_HTTP_MAX_BODY_BYTES must be > 0")
+    return value
+
+
+def _http_request_timeout_secs() -> float:
+    raw = os.environ.get("WBABD_HTTP_REQUEST_TIMEOUT_SECS", "15").strip()
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError(f"invalid WBABD_HTTP_REQUEST_TIMEOUT_SECS: {raw}") from exc
+    if value <= 0:
+        raise ValueError("WBABD_HTTP_REQUEST_TIMEOUT_SECS must be > 0")
+    return value
+
+
+def _tls_context_from_env() -> ssl.SSLContext | None:
+    cert_file = os.environ.get("WBABD_TLS_CERT_FILE", "").strip()
+    key_file = os.environ.get("WBABD_TLS_KEY_FILE", "").strip()
+    client_ca = os.environ.get("WBABD_TLS_CLIENT_CA_FILE", "").strip()
+
+    if not cert_file and not key_file and not client_ca:
+        return None
+    if not cert_file or not key_file:
+        raise ValueError("WBABD_TLS_CERT_FILE and WBABD_TLS_KEY_FILE must both be set when TLS is enabled")
+
+    cert_path = Path(cert_file)
+    key_path = Path(key_file)
+    if not cert_path.is_file():
+        raise ValueError(f"WBABD_TLS_CERT_FILE does not exist: {cert_file}")
+    if not key_path.is_file():
+        raise ValueError(f"WBABD_TLS_KEY_FILE does not exist: {key_file}")
+
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.minimum_version = ssl.TLSVersion.TLSv1_2
+    ctx.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
+
+    if client_ca:
+        ca_path = Path(client_ca)
+        if not ca_path.is_file():
+            raise ValueError(f"WBABD_TLS_CLIENT_CA_FILE does not exist: {client_ca}")
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        ctx.load_verify_locations(cafile=str(ca_path))
+    else:
+        ctx.verify_mode = ssl.CERT_NONE
+    return ctx
+
+
+def _serve_http(
+    store: OperationStore,
+    planner: Planner,
+    executor: Executor,
+    host: str,
+    port: int,
+    auth_mode: str,
+    expected_token: str,
+    authz_policy: dict[str, set[str]] | None,
+    audit: AuditLog,
+) -> int:
+    max_body_bytes = _http_max_body_bytes()
+    request_timeout_secs = _http_request_timeout_secs()
+    tls_ctx = _tls_context_from_env()
+
+    class ApiHandler(BaseHTTPRequestHandler):
+        def setup(self) -> None:
+            super().setup()
+            self.request.settimeout(request_timeout_secs)
+
+        def log_message(self, _format: str, *_args: object) -> None:
+            return
+
+        def do_GET(self) -> None:  # noqa: N802
+            principal = _principal_from_http(self)
+            ok, err = _authorize_http(self, auth_mode, expected_token)
+            if not ok:
+                headers = {"WWW-Authenticate": 'Bearer realm="wbabd", charset="UTF-8"'} if auth_mode == "token" else None
+                _json_response(self, 401, err, extra_headers=headers)
+                return
+            parsed = urlparse(self.path)
+            if parsed.path == "/health":
+                allowed, reason = _authorize_operation(authz_policy, principal, "health")
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        status="forbidden",
+                        details={"principal": principal, "op": "health", "reason": reason, "client_ip": self.client_address[0]},
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                audit.emit(
+                    "authz.allowed",
+                    status="ok",
+                    details={"principal": principal, "op": "health", "client_ip": self.client_address[0]},
+                )
+                _json_response(self, 200, {"status": "ok"})
+                return
+            if parsed.path == "/preflight-status":
+                allowed, reason = _authorize_operation(authz_policy, principal, "preflight_status")
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        status="forbidden",
+                        details={
+                            "principal": principal,
+                            "op": "preflight_status",
+                            "reason": reason,
+                            "client_ip": self.client_address[0],
+                        },
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                payload = _read_preflight_status(ROOT_DIR)
+                if payload is None:
+                    _json_response(self, 404, {"status": "not_found", "path": str(_default_preflight_status_path(ROOT_DIR))})
+                    return
+                _json_response(self, 200, payload)
+                return
+            if parsed.path == "/preflight-trend":
+                allowed, reason = _authorize_operation(authz_policy, principal, "preflight_trend")
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        status="forbidden",
+                        details={
+                            "principal": principal,
+                            "op": "preflight_trend",
+                            "reason": reason,
+                            "client_ip": self.client_address[0],
+                        },
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                qs = parse_qs(parsed.query)
+                raw_window = qs.get("window", [""])[0]
+                try:
+                    payload = _preflight_trend_summary(ROOT_DIR, raw_window)
+                except ValueError as exc:
+                    _json_response(self, 400, {"error": str(exc)})
+                    return
+                _json_response(self, 200, payload)
+                return
+            if parsed.path.startswith("/status/"):
+                allowed, reason = _authorize_operation(authz_policy, principal, "status")
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        status="forbidden",
+                        details={"principal": principal, "op": "status", "reason": reason, "client_ip": self.client_address[0]},
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                audit.emit(
+                    "authz.allowed",
+                    status="ok",
+                    details={"principal": principal, "op": "status", "client_ip": self.client_address[0]},
+                )
+                op_id = parsed.path.split("/", 2)[2]
+                payload = store.get(op_id)
+                if payload is None:
+                    _json_response(self, 404, {"op_id": op_id, "status": "not_found"})
+                    return
+                _json_response(self, 200, payload)
+                return
+            _json_response(self, 404, {"error": "not_found"})
+
+        def do_POST(self) -> None:  # noqa: N802
+            principal = _principal_from_http(self)
+            ok, err = _authorize_http(self, auth_mode, expected_token)
+            if not ok:
+                headers = {"WWW-Authenticate": 'Bearer realm="wbabd", charset="UTF-8"'} if auth_mode == "token" else None
+                _json_response(self, 401, err, extra_headers=headers)
+                return
+            parsed = urlparse(self.path)
+            try:
+                body = _parse_body(self, max_body_bytes)
+            except Exception as exc:  # pragma: no cover
+                msg = str(exc)
+                if msg.startswith("payload_too_large:"):
+                    _json_response(self, 413, {"error": msg})
+                    return
+                _json_response(self, 400, {"error": f"invalid_json: {exc}"})
+                return
+
+            if parsed.path in {"/plan", "/run"}:
+                op_id = str(body.get("op_id", ""))
+                verb = str(body.get("verb", ""))
+                args = body.get("args", [])
+                if not op_id or not verb or not isinstance(args, list):
+                    _json_response(self, 400, {"error": "op_id, verb, args[] required"})
+                    return
+                op = "plan" if parsed.path == "/plan" else "run"
+                allowed, reason = _authorize_operation(authz_policy, principal, op, verb)
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        op_id=op_id,
+                        verb=verb,
+                        status="forbidden",
+                        details={"principal": principal, "op": op, "reason": reason, "client_ip": self.client_address[0]},
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                audit.emit(
+                    "authz.allowed",
+                    op_id=op_id,
+                    verb=verb,
+                    status="ok",
+                    details={"principal": principal, "op": op, "client_ip": self.client_address[0]},
+                )
+                try:
+                    plan = planner.plan(op_id, verb, [str(a) for a in args])
+                except ValueError as exc:
+                    _json_response(self, 400, {"error": str(exc)})
+                    return
+                if parsed.path == "/plan":
+                    _json_response(
+                        self,
+                        200,
+                        {"op_id": plan.op_id, "verb": plan.verb, "args": plan.args, "steps": plan.steps},
+                    )
+                    return
+                result = executor.run(plan)
+                code = 200 if result["status"] in {"succeeded", "cached"} else 500
+                _json_response(self, code, result)
+                return
+
+            if parsed.path == "/status":
+                qs = parse_qs(parsed.query)
+                op_id = (qs.get("op_id", [""])[0] or str(body.get("op_id", ""))).strip()
+                if not op_id:
+                    _json_response(self, 400, {"error": "op_id required"})
+                    return
+                allowed, reason = _authorize_operation(authz_policy, principal, "status")
+                if not allowed:
+                    audit.emit(
+                        "authz.denied",
+                        op_id=op_id,
+                        status="forbidden",
+                        details={"principal": principal, "op": "status", "reason": reason, "client_ip": self.client_address[0]},
+                    )
+                    _json_response(self, 403, {"error": "forbidden", "principal": principal, "reason": reason})
+                    return
+                audit.emit(
+                    "authz.allowed",
+                    op_id=op_id,
+                    status="ok",
+                    details={"principal": principal, "op": "status", "client_ip": self.client_address[0]},
+                )
+                payload = store.get(op_id)
+                if payload is None:
+                    _json_response(self, 404, {"op_id": op_id, "status": "not_found"})
+                    return
+                _json_response(self, 200, payload)
+                return
+
+            _json_response(self, 404, {"error": "not_found"})
+
+    server = ThreadingHTTPServer((host, port), ApiHandler)
+    tls_enabled = tls_ctx is not None
+    mtls_enabled = bool(os.environ.get("WBABD_TLS_CLIENT_CA_FILE", "").strip())
+    if tls_ctx is not None:
+        server.socket = tls_ctx.wrap_socket(server.socket, server_side=True)
+    print(json.dumps({"status": "listening", "host": host, "port": port, "tls": tls_enabled, "mtls": mtls_enabled}))
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+    return 0
+
+
+def _run_inline_preflight(root_dir: Path) -> tuple[bool, str, dict]:
+    checked_at = int(time.time())
+    script = root_dir / "scripts" / "security" / "daemon-preflight.sh"
+    if not script.is_file():
+        msg = f"missing preflight script: {script}"
+        counters = _update_preflight_counters(root_dir, "failed", checked_at)
+        _write_preflight_status(
+            root_dir,
+            {
+                "status": "failed",
+                "checked_at": checked_at,
+                "mode": "serve",
+                "source": "wbabd --preflight",
+                "error": msg,
+                "counters": counters,
+            },
+        )
+        return False, msg, counters
+    proc = subprocess.run(
+        [str(script), "serve"],
+        cwd=root_dir,
+        text=True,
+        capture_output=True,
+        check=False,
+        env=os.environ.copy(),
+    )
+    if proc.returncode == 0:
+        msg = (proc.stdout.strip() or "OK")
+        counters = _update_preflight_counters(root_dir, "ok", checked_at)
+        _write_preflight_status(
+            root_dir,
+            {
+                "status": "ok",
+                "checked_at": checked_at,
+                "mode": "serve",
+                "source": "wbabd --preflight",
+                "message": msg,
+                "counters": counters,
+            },
+        )
+        return True, msg, counters
+    msg = (proc.stderr.strip() or proc.stdout.strip() or f"preflight failed with rc={proc.returncode}").strip()
+    counters = _update_preflight_counters(root_dir, "failed", checked_at)
+    _write_preflight_status(
+        root_dir,
+        {
+            "status": "failed",
+            "checked_at": checked_at,
+            "mode": "serve",
+            "source": "wbabd --preflight",
+            "error": msg,
+            "counters": counters,
+        },
+    )
+    return False, msg, counters
+
+
+def _handle_api_request(store: OperationStore, planner: Planner, executor: Executor, req: dict) -> tuple[int, dict]:
+    op = str(req.get("op", "")).strip()
+    if op == "health":
+        return 200, {"status": "ok"}
+    if op == "preflight_status":
+        payload = _read_preflight_status(ROOT_DIR)
+        if payload is None:
+            return 404, {"status": "not_found", "path": str(_default_preflight_status_path(ROOT_DIR))}
+        return 200, payload
+    if op == "preflight_trend":
+        try:
+            payload = _preflight_trend_summary(ROOT_DIR, req.get("window", ""))
+        except ValueError as exc:
+            return 400, {"error": str(exc)}
+        return 200, payload
+    if op == "status":
+        op_id = str(req.get("op_id", "")).strip()
+        if not op_id:
+            return 400, {"error": "op_id required"}
+        payload = store.get(op_id)
+        if payload is None:
+            return 404, {"op_id": op_id, "status": "not_found"}
+        return 200, payload
+    if op in {"plan", "run"}:
+        op_id = str(req.get("op_id", "")).strip()
+        verb = str(req.get("verb", "")).strip()
+        args = req.get("args", [])
+        if not op_id or not verb or not isinstance(args, list):
+            return 400, {"error": "op_id, verb, args[] required"}
+        try:
+            plan = planner.plan(op_id, verb, [str(a) for a in args])
+        except ValueError as exc:
+            return 400, {"error": str(exc)}
+        if op == "plan":
+            return 200, {"op_id": plan.op_id, "verb": plan.verb, "args": plan.args, "steps": plan.steps}
+        result = executor.run(plan)
+        return (200 if result["status"] in {"succeeded", "cached"} else 500), result
+    return 400, {"error": f"unknown op: {op}"}
+
+
+def main() -> int:
+    if len(sys.argv) < 2 or sys.argv[1] in {"-h", "--help"}:
+        usage()
+        return 0
+
+    cmd = sys.argv[1]
+    auth_mode = _auth_mode_for_command(cmd)
+    try:
+        authz_policy = _load_authz_policy()
+    except ValueError as exc:
+        print(f"wbabd: {exc}", file=sys.stderr)
+        return 2
+    store = OperationStore(default_store_path(ROOT_DIR))
+    planner = Planner()
+    audit = AuditLog(default_audit_path(ROOT_DIR))
+    executor = Executor(ROOT_DIR, store, audit=audit)
+    audit.emit("command.received", details={"argv": sys.argv[1:]})
+
+    if cmd == "status":
+        if len(sys.argv) < 3:
+            print("wbabd: missing op-id", file=sys.stderr)
+            return 2
+        op_id = sys.argv[2]
+        principal = _principal_from_env()
+        allowed, reason = _authorize_operation(authz_policy, principal, "status")
+        if not allowed:
+            audit.emit("authz.denied", op_id=op_id, status="forbidden", details={"principal": principal, "op": "status", "reason": reason})
+            print(json.dumps({"error": "forbidden", "principal": principal, "reason": reason}))
+            return 1
+        audit.emit("authz.allowed", op_id=op_id, status="ok", details={"principal": principal, "op": "status"})
+        payload = store.get(op_id)
+        if payload is None:
+            audit.emit("command.status", op_id=op_id, status="not_found")
+            print(json.dumps({"op_id": op_id, "status": "not_found"}))
+            return 1
+        audit.emit("command.status", op_id=op_id, status="ok")
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if cmd in {"plan", "run"}:
+        if len(sys.argv) < 4:
+            print("wbabd: missing arguments", file=sys.stderr)
+            usage()
+            return 2
+        op_id = sys.argv[2]
+        verb = sys.argv[3]
+        principal = _principal_from_env()
+        allowed, reason = _authorize_operation(authz_policy, principal, cmd, verb)
+        if not allowed:
+            audit.emit(
+                "authz.denied",
+                op_id=op_id,
+                verb=verb,
+                status="forbidden",
+                details={"principal": principal, "op": cmd, "reason": reason},
+            )
+            print(json.dumps({"error": "forbidden", "principal": principal, "reason": reason}))
+            return 1
+        audit.emit("authz.allowed", op_id=op_id, verb=verb, status="ok", details={"principal": principal, "op": cmd})
+        args = sys.argv[4:]
+        try:
+            plan = planner.plan(op_id, verb, args)
+        except ValueError as exc:
+            print(f"wbabd: {exc}", file=sys.stderr)
+            return 2
+        if cmd == "plan":
+            audit.emit("command.plan", op_id=plan.op_id, verb=plan.verb, status="ok", details={"args": plan.args})
+            print(
+                json.dumps(
+                    {
+                        "op_id": plan.op_id,
+                        "verb": plan.verb,
+                        "args": plan.args,
+                        "steps": plan.steps,
+                    },
+                    indent=2,
+                )
+            )
+            return 0
+        audit.emit("command.run", op_id=plan.op_id, verb=plan.verb, status="started", details={"args": plan.args})
+        result = executor.run(plan)
+        audit.emit("command.run", op_id=plan.op_id, verb=plan.verb, status=result.get("status", "unknown"))
+        print(json.dumps(result, indent=2))
+        return 0 if result["status"] in {"succeeded", "cached"} else 1
+
+    if cmd == "api":
+        raw = sys.argv[2] if len(sys.argv) >= 3 else sys.stdin.read()
+        if not raw.strip():
+            print(json.dumps({"error": "json request required"}))
+            return 2
+        try:
+            req = json.loads(raw)
+        except Exception as exc:
+            print(json.dumps({"error": f"invalid_json: {exc}"}))
+            return 2
+        op = str(req.get("op", "")).strip()
+        verb = str(req.get("verb", "")).strip()
+        principal = _principal_from_env()
+        allowed, reason = _authorize_operation(authz_policy, principal, op, verb)
+        if not allowed:
+            audit.emit(
+                "authz.denied",
+                op_id=str(req.get("op_id", "")),
+                verb=verb,
+                status="forbidden",
+                details={"principal": principal, "op": op, "reason": reason},
+            )
+            print(json.dumps({"error": "forbidden", "principal": principal, "reason": reason}, indent=2))
+            return 1
+        audit.emit(
+            "authz.allowed",
+            op_id=str(req.get("op_id", "")),
+            verb=verb,
+            status="ok",
+            details={"principal": principal, "op": op},
+        )
+        audit.emit("command.api", status="started", details={"op": req.get("op", "")})
+        code, resp = _handle_api_request(store, planner, executor, req)
+        audit.emit(
+            "command.api",
+            op_id=str(req.get("op_id", "")),
+            verb=str(req.get("verb", "")),
+            status=("ok" if code < 400 else "error"),
+            details={"op": req.get("op", ""), "http_code": code},
+        )
+        print(json.dumps(resp, indent=2))
+        return 0 if code < 400 else 1
+
+    if cmd == "serve":
+        audit.emit("command.serve", status="started")
+        parser = argparse.ArgumentParser(add_help=False)
+        parser.add_argument("--host", default="127.0.0.1")
+        parser.add_argument("--port", type=int, default=8787)
+        parser.add_argument("--preflight", action="store_true")
+        ns = parser.parse_args(sys.argv[2:])
+        try:
+            if ns.preflight:
+                ok, msg, counters = _run_inline_preflight(ROOT_DIR)
+                if not ok:
+                    audit.emit("command.preflight", status="failed", details={"error": msg, "counters": counters})
+                    print(f"wbabd: preflight failed: {msg}", file=sys.stderr)
+                    return 2
+                audit.emit("command.preflight", status="ok", details={"message": msg, "counters": counters})
+            if auth_mode == "token":
+                token = _resolve_api_token()
+                if not token:
+                    print("wbabd: token auth enabled but no WBABD_API_TOKEN or WBABD_API_TOKEN_FILE provided", file=sys.stderr)
+                    return 2
+                return _serve_http(store, planner, executor, ns.host, ns.port, auth_mode, token, authz_policy, audit)
+            if auth_mode != "off":
+                print(f"wbabd: unsupported WBABD_AUTH_MODE for serve: {auth_mode}", file=sys.stderr)
+                return 2
+            return _serve_http(store, planner, executor, ns.host, ns.port, auth_mode, "", authz_policy, audit)
+        except ValueError as exc:
+            print(f"wbabd: {exc}", file=sys.stderr)
+            return 2
+
+    print(f"wbabd: unknown command: {cmd}", file=sys.stderr)
+    usage()
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

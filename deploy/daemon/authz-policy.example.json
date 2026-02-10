@@ -1,0 +1,38 @@
+{
+  "principals": {
+    "wbabd-systemd": {
+      "verbs": [
+        "health",
+        "status",
+        "preflight_status",
+        "preflight_trend",
+        "plan",
+        "run:build",
+        "run:package",
+        "run:sign",
+        "run:smoke",
+        "run:doctor"
+      ]
+    },
+    "wbabd-container": {
+      "verbs": [
+        "health",
+        "status",
+        "preflight_status",
+        "preflight_trend",
+        "plan",
+        "run:build",
+        "run:package",
+        "run:sign",
+        "run:smoke",
+        "run:doctor"
+      ]
+    },
+    "readonly-ops": {
+      "verbs": ["health", "status", "preflight_status", "preflight_trend", "plan"]
+    },
+    "*": {
+      "verbs": ["health"]
+    }
+  }
+}
