@@ -1,20 +1,35 @@
-name: Publish WBAB Images
+name: Release Automation
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
 
 permissions:
-  contents: read
+  contents: write
   packages: write
 
 jobs:
-  publish-ghcr:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
+
+      - name: Install lint deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Run all tests
+        run: |
+          chmod +x scripts/lint.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
+          ./scripts/lint.sh
+          ./tests/shell/run.sh
+          ./tests/contract/run.sh
+          ./tests/policy/run.sh
+          ./tests/e2e/run.sh
 
       - name: Dockerfile hardening lint (Hadolint)
         uses: hadolint/hadolint-action@v3.3.0
@@ -41,15 +56,6 @@ jobs:
           format: table
           exit-code: '1'
 
-      - name: Generate SBOM report (Trivy CycloneDX)
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: cyclonedx
-          output: artifacts/sbom-repo.cdx.json
-          exit-code: '0'
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -65,10 +71,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish images (if Dockerfiles exist)
+      - name: Publish images
         env:
           OWNER: ${{ github.repository_owner }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
@@ -88,18 +94,18 @@ jobs:
             local image="ghcr.io/${owner_lc}/${image_name}"
             local metadata_file="artifacts/${image_name}.metadata.json"
             echo "Publishing ${image}:${TAG}"
-            docker buildx build \
-              --file "${dockerfile}" \
-              --tag "${image}:${TAG}" \
-              --tag "${image}:latest" \
-              --label "org.opencontainers.image.source=https://github.com/${REPO}" \
-              --label "org.opencontainers.image.revision=${SHA}" \
-              --label "org.opencontainers.image.version=${TAG}" \
-              --label "org.opencontainers.image.title=${image_name}" \
-              --provenance=true \
-              --sbom=true \
-              --metadata-file "${metadata_file}" \
-              --push \
+            docker buildx build 
+              --file "${dockerfile}" 
+              --tag "${image}:${TAG}" 
+              --tag "${image}:latest" 
+              --label "org.opencontainers.image.source=https://github.com/${REPO}" 
+              --label "org.opencontainers.image.revision=${SHA}" 
+              --label "org.opencontainers.image.version=${TAG}" 
+              --label "org.opencontainers.image.title=${image_name}" 
+              --provenance=true 
+              --sbom=true 
+              --metadata-file "${metadata_file}" 
+              --push 
               .
 
             digest="$(jq -r '.["containerimage.digest"] // empty' "${metadata_file}")"
@@ -114,10 +120,34 @@ jobs:
           publish_if_exists "tools/packaging/Dockerfile" "winebotappbuilder-packager"
           publish_if_exists "tools/signing/Dockerfile" "winebotappbuilder-signer"
 
+      - name: Build sample installer for release asset
+        run: |
+          export WBAB_ALLOW_LOCAL_BUILD=1
+          export WBAB_BUILD_CMD="wbab-build-real"
+          export WBAB_PACKAGE_CMD="wbab-package-real samples/validation-app/installer.nsi"
+          # These will run in local docker on the runner using the freshly built local images
+          # But since we just built them with buildx, we need to make sure they are available locally
+          # Actually, buildx with --push doesn't load them into the local daemon by default.
+          # We'll just build them locally for the asset creation.
+          docker build -t ghcr.io/${{ github.repository_owner }}/winebotappbuilder-winbuild:local -f tools/winbuild/Dockerfile .
+          docker build -t ghcr.io/${{ github.repository_owner }}/winebotappbuilder-packager:local -f tools/packaging/Dockerfile .
+          
+          ./tools/wbab build samples/validation-app
+          ./tools/wbab package .
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ github.ref_name }}" 
+            --title "Release ${{ github.ref_name }}" 
+            --generate-notes 
+            samples/validation-app/dist/ValidationSetup.exe
+
       - name: Upload publish metadata
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: publish-ghcr-metadata
+          name: release-metadata
           path: artifacts/**
           if-no-files-found: warn
