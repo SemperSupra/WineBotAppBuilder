@@ -145,6 +145,7 @@ fi
 # Install the app unless explicitly skipped (useful for infrastructure-only smoke checks)
 if [[ "${SMOKE_SKIP_INSTALL}" != "1" ]]; then
   echo "INFO: Installing ${INSTALLER} with args: ${INSTALLER_ARGS}..."
+  # shellcheck disable=SC2086
   "${COMPOSE}" -f "${BASE_COMPOSE}" -f "${OVERRIDE}" --profile "${PROFILE}" \
     exec --user winebot "${WINEBOT_SERVICE}" \
     timeout 60s wine "apps/$(basename "${INSTALLER}")" ${INSTALLER_ARGS}
@@ -155,6 +156,7 @@ fi
 # Optional sanity run (set WBAB_SANITY_EXE to a Windows path)
 if [[ -n "${WBAB_SANITY_EXE:-}" ]]; then
   echo "INFO: Running sanity check: ${WBAB_SANITY_EXE} with args: ${APP_ARGS}..."
+  # shellcheck disable=SC2086
   "${COMPOSE}" -f "${BASE_COMPOSE}" -f "${OVERRIDE}" --profile "${PROFILE}" \
     exec --user winebot "${WINEBOT_SERVICE}" \
     timeout 60s wine "${WBAB_SANITY_EXE}" ${APP_ARGS}

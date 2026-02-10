@@ -21,13 +21,18 @@ else
   if [[ -f "package.nsi" ]]; then
     echo "wbab-package: Found package.nsi, building..."
     makensis -V3 "package.nsi"
-  elif ls *.nsi >/dev/null 2>&1; then
-    # Pick the first .nsi file
-    f="$(ls *.nsi | head -n 1)"
-    echo "wbab-package: Found ${f}, building..."
-    makensis -V3 "${f}"
   else
-    echo "wbab-package: No .nsi file found in $(pwd)"
-    exit 1
+    # Auto-detect any .nsi file
+    shopt -s nullglob
+    nsi_files=( *.nsi )
+    shopt -u nullglob
+    if [[ ${#nsi_files[@]} -gt 0 ]]; then
+      f="${nsi_files[0]}"
+      echo "wbab-package: Found ${f}, building..."
+      makensis -V3 "${f}"
+    else
+      echo "wbab-package: No .nsi file found in $(pwd)"
+      exit 1
+    fi
   fi
 fi
