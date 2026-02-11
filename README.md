@@ -17,7 +17,7 @@ This zip contains the initial bring-up files for the **WineBotAppBuilder** proje
 - opt-in real e2e workflow (`workflow_dispatch`) for non-mocked Docker/WineBot validation
 - real e2e workflow uploads `artifacts/`, `out/`, and `dist/` for post-run evidence
 - real e2e path validates non-fixture installer input and records checksum/manifest evidence
-- release-only GHCR publish workflow for WBAB images (`.github/workflows/publish-ghcr.yml`)
+- release-only GHCR publish workflow for WBAB images (`.github/workflows/release.yml`)
 - core baseline planner/executor + idempotent op store (`core/wbab_core.py`, `tools/wbabd`)
 - daemon shim API for non-CLI adapters via `tools/wbabd api` (optional HTTP via `tools/wbabd serve`)
 - append-only audit stream for command/operation traceability (`.wbab/audit-log.jsonl`)

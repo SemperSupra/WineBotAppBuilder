@@ -2,74 +2,77 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-wf="${ROOT_DIR}/.github/workflows/publish-ghcr.yml"
-[[ -f "${wf}" ]] || { echo "Missing required workflow: .github/workflows/publish-ghcr.yml" >&2; exit 1; }
-grep -qE '^\s*release:' "${wf}" || {
-  echo "publish-ghcr.yml must keep release trigger contract" >&2
+wf="${ROOT_DIR}/.github/workflows/release.yml"
+[[ -f "${wf}" ]] || { echo "Missing required workflow: .github/workflows/release.yml" >&2; exit 1; }
+
+# Release trigger policy: must trigger on push tags v*
+grep -qE '^\s*push:' "${wf}" || {
+  echo "release.yml must keep push trigger contract" >&2
   exit 1
 }
-grep -qE 'types:\s*\[\s*published\s*\]' "${wf}" || {
-  echo "publish-ghcr.yml must keep release types contract: [published]" >&2
+grep -qE 'tags:' "${wf}" || {
+  echo "release.yml must restrict push trigger to tags" >&2
   exit 1
 }
-if grep -qE '^\s*push:' "${wf}"; then
-  echo "publish-ghcr.yml must not enable push trigger" >&2
+grep -qE "'v\*'" "${wf}" || {
+  echo "release.yml must keep v* tag pattern contract" >&2
   exit 1
-fi
+}
+
 grep -q 'uses: actions/checkout@v4' "${wf}" || {
-  echo "publish-ghcr.yml must pin checkout action version: actions/checkout@v4" >&2
+  echo "release.yml must pin checkout action version: actions/checkout@v4" >&2
   exit 1
 }
 grep -q 'submodules: false' "${wf}" || {
-  echo "publish-ghcr.yml checkout step must keep submodules: false" >&2
+  echo "release.yml checkout step must keep submodules: false" >&2
   exit 1
 }
 grep -qE '^\s*permissions:' "${wf}" || {
-  echo "publish-ghcr.yml must declare explicit workflow permissions" >&2
+  echo "release.yml must declare explicit workflow permissions" >&2
   exit 1
 }
-grep -qE '^\s*contents:\s*read' "${wf}" || {
-  echo "publish-ghcr.yml permissions must keep contents: read" >&2
+grep -qE '^\s*contents:\s*write' "${wf}" || {
+  echo "release.yml permissions must allow contents: write (for release creation)" >&2
   exit 1
 }
 grep -qE '^\s*packages:\s*write' "${wf}" || {
-  echo "publish-ghcr.yml permissions must keep packages: write" >&2
+  echo "release.yml permissions must keep packages: write" >&2
   exit 1
 }
 
 # Hardening gate: hadolint for all three Dockerfiles
-grep -q 'hadolint/hadolint-action@v3.3.0' "${wf}" || { echo "publish-ghcr.yml missing hadolint hardening gate" >&2; exit 1; }
-grep -q 'tools/winbuild/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing winbuild Dockerfile lint reference" >&2; exit 1; }
-grep -q 'tools/packaging/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing packaging Dockerfile lint reference" >&2; exit 1; }
-grep -q 'tools/signing/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing signing Dockerfile lint reference" >&2; exit 1; }
+grep -q 'hadolint/hadolint-action@v3.3.0' "${wf}" || { echo "release.yml missing hadolint hardening gate" >&2; exit 1; }
+grep -q 'tools/winbuild/Dockerfile' "${wf}" || { echo "release.yml missing winbuild Dockerfile lint reference" >&2; exit 1; }
+grep -q 'tools/packaging/Dockerfile' "${wf}" || { echo "release.yml missing packaging Dockerfile lint reference" >&2; exit 1; }
+grep -q 'tools/signing/Dockerfile' "${wf}" || { echo "release.yml missing signing Dockerfile lint reference" >&2; exit 1; }
 hadolint_pin_count="$(grep -c 'uses: hadolint/hadolint-action@v3.3.0' "${wf}")"
 [[ "${hadolint_pin_count}" == "3" ]] || {
-  echo "publish-ghcr.yml must pin hadolint action to v3.3.0 for all three lint steps" >&2
+  echo "release.yml must pin hadolint action to v3.3.0 for all three lint steps" >&2
   exit 1
 }
 
 # Security gate: Trivy with blocking exit code for HIGH/CRITICAL
-grep -q 'aquasecurity/trivy-action@0.29.0' "${wf}" || { echo "publish-ghcr.yml missing trivy security gate" >&2; exit 1; }
+grep -q 'aquasecurity/trivy-action@0.29.0' "${wf}" || { echo "release.yml missing trivy security gate" >&2; exit 1; }
 trivy_pin_count="$(grep -c 'uses: aquasecurity/trivy-action@0.29.0' "${wf}")"
 [[ "${trivy_pin_count}" == "2" ]] || {
-  echo "publish-ghcr.yml must pin trivy action to 0.29.0 for both security and SBOM steps" >&2
+  echo "release.yml must pin trivy action to 0.29.0 for both security and SBOM steps" >&2
   exit 1
 }
-grep -q 'severity: CRITICAL,HIGH' "${wf}" || { echo "publish-ghcr.yml must scan CRITICAL,HIGH vulnerabilities" >&2; exit 1; }
-grep -q "exit-code: '1'" "${wf}" || { echo "publish-ghcr.yml must block on trivy vulnerabilities" >&2; exit 1; }
+grep -q 'severity: CRITICAL,HIGH' "${wf}" || { echo "release.yml must scan CRITICAL,HIGH vulnerabilities" >&2; exit 1; }
+grep -q "exit-code: '1'" "${wf}" || { echo "release.yml must block on trivy vulnerabilities" >&2; exit 1; }
 
 # SBOM contract: build step + explicit CycloneDX report output
-grep -q -- '--sbom=true' "${wf}" || { echo "publish-ghcr.yml must build with sbom generation enabled" >&2; exit 1; }
-grep -q 'format: cyclonedx' "${wf}" || { echo "publish-ghcr.yml must generate CycloneDX SBOM report" >&2; exit 1; }
-grep -q 'artifacts/sbom-repo.cdx.json' "${wf}" || { echo "publish-ghcr.yml missing SBOM output artifact path" >&2; exit 1; }
+grep -q -- '--sbom=true' "${wf}" || { echo "release.yml must build with sbom generation enabled" >&2; exit 1; }
+grep -q 'format: cyclonedx' "${wf}" || { echo "release.yml must generate CycloneDX SBOM report" >&2; exit 1; }
+grep -q 'artifacts/sbom-repo.cdx.json' "${wf}" || { echo "release.yml missing SBOM output artifact path" >&2; exit 1; }
 
 # Local/CI parity contract: publish workflow must reuse local dry-check helper.
 grep -q 'scripts/publish/dockerfiles-drycheck.sh' "${wf}" || {
-  echo "publish-ghcr.yml must reference scripts/publish/dockerfiles-drycheck.sh for local/CI parity" >&2
+  echo "release.yml must reference scripts/publish/dockerfiles-drycheck.sh for local/CI parity" >&2
   exit 1
 }
 grep -q 'name: Dry-check publish Dockerfiles (local/CI parity)' "${wf}" || {
-  echo "publish-ghcr.yml must keep dry-check step name stable: Dry-check publish Dockerfiles (local/CI parity)" >&2
+  echo "release.yml must keep dry-check step name stable: Dry-check publish Dockerfiles (local/CI parity)" >&2
   exit 1
 }
 awk '
@@ -82,15 +85,15 @@ awk '
   }
   END { exit(found && found_failfast ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml dry-check step must keep fail-fast + scripts/publish/dockerfiles-drycheck.sh adjacent to its step block" >&2
+  echo "release.yml dry-check step must keep fail-fast + scripts/publish/dockerfiles-drycheck.sh adjacent to its step block" >&2
   exit 1
 }
 grep -q 'name: Set up Docker Buildx' "${wf}" || {
-  echo "publish-ghcr.yml must keep buildx step name stable: Set up Docker Buildx" >&2
+  echo "release.yml must keep buildx step name stable: Set up Docker Buildx" >&2
   exit 1
 }
 grep -q 'uses: docker/setup-buildx-action@v3' "${wf}" || {
-  echo "publish-ghcr.yml must pin buildx setup action version: docker/setup-buildx-action@v3" >&2
+  echo "release.yml must pin buildx setup action version: docker/setup-buildx-action@v3" >&2
   exit 1
 }
 awk '
@@ -102,11 +105,11 @@ awk '
   }
   END { exit(found ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml buildx step must keep docker/setup-buildx-action@v3 adjacent to its step block" >&2
+  echo "release.yml buildx step must keep docker/setup-buildx-action@v3 adjacent to its step block" >&2
   exit 1
 }
 grep -q 'name: Log in to GHCR' "${wf}" || {
-  echo "publish-ghcr.yml must keep GHCR login step name stable: Log in to GHCR" >&2
+  echo "release.yml must keep GHCR login step name stable: Log in to GHCR" >&2
   exit 1
 }
 awk '
@@ -118,7 +121,7 @@ awk '
   }
   END { exit(found ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml login step must keep docker/login-action@v3 adjacent to its step block" >&2
+  echo "release.yml login step must keep docker/login-action@v3 adjacent to its step block" >&2
   exit 1
 }
 awk '
@@ -137,15 +140,15 @@ awk '
   }
   END { exit(found_registry && found_user && found_token ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml login step must keep registry/username/password fields in the same step block" >&2
+  echo "release.yml login step must keep registry/username/password fields in the same step block" >&2
   exit 1
 }
-grep -q 'name: Publish images (if Dockerfiles exist)' "${wf}" || {
-  echo "publish-ghcr.yml must keep publish step name stable: Publish images (if Dockerfiles exist)" >&2
+grep -q 'name: Publish images' "${wf}" || {
+  echo "release.yml must keep publish step name stable: Publish images" >&2
   exit 1
 }
 awk '
-  /name: Publish images \(if Dockerfiles exist\)/ {
+  /name: Publish images/ {
     while (getline) {
       if ($0 ~ /^[[:space:]]*-[[:space:]]name:/) break
       if ($0 ~ /set -euo pipefail/) found_failfast=1
@@ -162,7 +165,7 @@ awk '
       if (in_fn && $0 ~ /jq -r/ && $0 ~ /containerimage\.digest/ && $0 ~ /\$\{metadata_file\}/) found_digest_jq=1
       if (in_fn && $0 ~ /^\s*\}/) in_fn=0
       if ($0 ~ /OWNER:[[:space:]]\$\{\{ github\.repository_owner \}\}/) found_owner=1
-      if ($0 ~ /TAG:[[:space:]]\$\{\{ github\.event\.release\.tag_name \}\}/) found_tag=1
+      if ($0 ~ /TAG:[[:space:]]\$\{\{ github\.ref_name \}\}/) found_tag=1
       if ($0 ~ /REPO:[[:space:]]\$\{\{ github\.repository \}\}/) found_repo=1
       if ($0 ~ /SHA:[[:space:]]\$\{\{ github\.sha \}\}/) found_sha=1
       if ($0 ~ /mkdir -p artifacts/) found_artifacts_mkdir=1
@@ -210,11 +213,11 @@ awk '
     exit 1
   }
 ' "${wf}" || {
-  echo "publish-ghcr.yml publish step must keep env contract + build/push + metadata digest handling within its step block" >&2
+  echo "release.yml publish step must keep env contract + build/push + metadata digest handling within its step block" >&2
   exit 1
 }
 awk '
-  /name: Publish images \(if Dockerfiles exist\)/ { in_publish=1; next }
+  /name: Publish images/ { in_publish=1; next }
   in_publish && /^[[:space:]]*-[[:space:]]name:/ { in_publish=0 }
   in_publish && /publish_if_exists\(\)/ && !def_line { def_line=NR }
   in_publish && /publish_if_exists "tools\/winbuild\/Dockerfile" "winebotappbuilder-winbuild"/ && !winbuild_call { winbuild_call=NR }
@@ -227,15 +230,15 @@ awk '
     if (!(winbuild_call < packager_call && packager_call < signer_call)) exit 1
   }
 ' "${wf}" || {
-  echo "publish-ghcr.yml must define publish_if_exists() before invoking tool Dockerfile mappings and keep mapping order winbuild->packaging->signing" >&2
+  echo "release.yml must define publish_if_exists() before invoking tool Dockerfile mappings and keep mapping order winbuild->packaging->signing" >&2
   exit 1
 }
 grep -q 'uses: actions/upload-artifact@v4' "${wf}" || {
-  echo "publish-ghcr.yml must pin upload action version: actions/upload-artifact@v4" >&2
+  echo "release.yml must pin upload action version: actions/upload-artifact@v4" >&2
   exit 1
 }
 grep -q 'name: Upload publish metadata' "${wf}" || {
-  echo "publish-ghcr.yml must keep upload step name stable: Upload publish metadata" >&2
+  echo "release.yml must keep upload step name stable: Upload publish metadata" >&2
   exit 1
 }
 awk '
@@ -247,7 +250,7 @@ awk '
   }
   END { exit(found ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml upload step must keep actions/upload-artifact@v4 adjacent to its step block" >&2
+  echo "release.yml upload step must keep actions/upload-artifact@v4 adjacent to its step block" >&2
   exit 1
 }
 awk '
@@ -259,19 +262,19 @@ awk '
   }
   END { exit(found ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml upload step must keep if: always() inside its step block" >&2
+  echo "release.yml upload step must keep if: always() inside its step block" >&2
   exit 1
 }
-grep -q 'name: publish-ghcr-metadata' "${wf}" || {
-  echo "publish-ghcr.yml must keep publish metadata artifact name: publish-ghcr-metadata" >&2
+grep -q 'name: release-metadata' "${wf}" || {
+  echo "release.yml must keep publish metadata artifact name: release-metadata" >&2
   exit 1
 }
 grep -q 'path: artifacts/\*\*' "${wf}" || {
-  echo "publish-ghcr.yml must keep publish metadata artifact path: artifacts/**" >&2
+  echo "release.yml must keep publish metadata artifact path: artifacts/**" >&2
   exit 1
 }
 grep -q 'if-no-files-found: warn' "${wf}" || {
-  echo "publish-ghcr.yml must keep publish metadata artifact no-files policy: warn" >&2
+  echo "release.yml must keep publish metadata artifact no-files policy: warn" >&2
   exit 1
 }
 awk '
@@ -283,14 +286,14 @@ awk '
     if ($0 ~ /^[[:space:]]*-[[:space:]]name:/) {
       in_upload=0
     } else {
-      if ($0 ~ /name:[[:space:]]publish-ghcr-metadata/) found_name=1
+      if ($0 ~ /name:[[:space:]]release-metadata/) found_name=1
       if ($0 ~ /path:[[:space:]]artifacts\/\*\*/) found_path=1
       if ($0 ~ /if-no-files-found:[[:space:]]warn/) found_warn=1
     }
   }
   END { exit(found_name && found_path && found_warn ? 0 : 1) }
 ' "${wf}" || {
-  echo "publish-ghcr.yml upload step must keep artifact name/path/if-no-files-found within the same step block" >&2
+  echo "release.yml upload step must keep artifact name/path/if-no-files-found within the same step block" >&2
   exit 1
 }
 
@@ -299,7 +302,7 @@ awk '
   /name: Set up Docker Buildx/ { buildx=NR }
   /name: Dry-check publish Dockerfiles \(local\/CI parity\)/ { drycheck=NR }
   /name: Log in to GHCR/ { login=NR }
-  /name: Publish images \(if Dockerfiles exist\)/ { publish=NR }
+  /name: Publish images/ { publish=NR }
   END {
     if (!buildx || !drycheck || !login || !publish) exit 1
     if (buildx >= drycheck) exit 1
@@ -307,6 +310,6 @@ awk '
     if (login >= publish) exit 1
   }
 ' "${wf}" || {
-  echo "publish-ghcr.yml must keep step order buildx < dry-check < GHCR login < publish-images" >&2
+  echo "release.yml must keep step order buildx < dry-check < GHCR login < publish-images" >&2
   exit 1
 }

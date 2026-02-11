@@ -10,7 +10,8 @@ if grep -q 'WBAB_ALLOW_WINEBOT_LOCAL_BUILD' "${runner}"; then
   exit 1
 fi
 
-if grep -q -- '--build' "${runner}"; then
+# We allow --no-build but NOT --build.
+if grep -qE '(^|[[:space:]])--build([[:space:]]|$)' "${runner}"; then
   echo "winebot-smoke.sh must not invoke docker compose --build path" >&2
   exit 1
 fi

@@ -2,17 +2,15 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-wf="${ROOT_DIR}/.github/workflows/publish-ghcr.yml"
+wf="${ROOT_DIR}/.github/workflows/release.yml"
 
-[[ -f "${wf}" ]] || { echo "Missing required workflow: .github/workflows/publish-ghcr.yml" >&2; exit 1; }
+[[ -f "${wf}" ]] || { echo "Missing required workflow: .github/workflows/release.yml" >&2; exit 1; }
 
-# Basic policy: must not contain 'push:' trigger
-if grep -qE '^\s*push:' "${wf}"; then
-  echo "publish-ghcr.yml must not trigger on push" >&2
-  exit 1
-fi
+# Release policy: must trigger on push tags v*
+grep -qE '^\s*push:' "${wf}" || { echo "release.yml must trigger on push" >&2; exit 1; }
+grep -qE 'tags:' "${wf}" || { echo "release.yml must restrict push to tags" >&2; exit 1; }
+grep -qE "'v\*'" "${wf}" || { echo "release.yml must trigger on v* tags" >&2; exit 1; }
 
-# Must trigger on release published
-grep -qE '^\s*release:' "${wf}" || { echo "publish-ghcr.yml must trigger on release" >&2; exit 1; }
-grep -qE 'types:\s*\[\s*published\s*\]' "${wf}" || { echo "publish-ghcr.yml must include release.types: [published]" >&2; exit 1; }
-grep -q 'uses: docker/login-action@v3' "${wf}" || { echo "publish-ghcr.yml must login to GHCR" >&2; exit 1; }
+# Release creation and GHCR login
+grep -q 'uses: docker/login-action@v3' "${wf}" || { echo "release.yml must login to GHCR" >&2; exit 1; }
+grep -q 'gh release create' "${wf}" || { echo "release.yml must create GitHub Release" >&2; exit 1; }

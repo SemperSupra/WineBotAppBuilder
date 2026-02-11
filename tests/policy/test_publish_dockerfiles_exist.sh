@@ -12,7 +12,7 @@ for f in "${required[@]}"; do
   [[ -f "${f}" ]] || { echo "Missing required Dockerfile for publish workflow: ${f}" >&2; exit 1; }
 done
 
-wf="${ROOT_DIR}/.github/workflows/publish-ghcr.yml"
-grep -q 'tools/winbuild/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing winbuild Dockerfile reference" >&2; exit 1; }
-grep -q 'tools/packaging/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing packaging Dockerfile reference" >&2; exit 1; }
-grep -q 'tools/signing/Dockerfile' "${wf}" || { echo "publish-ghcr.yml missing signing Dockerfile reference" >&2; exit 1; }
+wf="${ROOT_DIR}/.github/workflows/release.yml"
+grep -q 'tools/winbuild/Dockerfile' "${wf}" || { echo "release.yml missing winbuild Dockerfile reference" >&2; exit 1; }
+grep -q 'tools/packaging/Dockerfile' "${wf}" || { echo "release.yml missing packaging Dockerfile reference" >&2; exit 1; }
+grep -q 'tools/signing/Dockerfile' "${wf}" || { echo "release.yml missing signing Dockerfile reference" >&2; exit 1; }

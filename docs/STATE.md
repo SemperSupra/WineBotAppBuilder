@@ -42,12 +42,12 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 - Dev signing certificate lifecycle scripts (`scripts/signing/dev-cert.sh`) with init/rotate/export/import/status
 - Production-like signing PKI lifecycle helper (`scripts/signing/signing-pki.sh`) with init/rotate/status/export/import
 - Expanded TLA+ model skeleton (`formal/tla/DaemonIdempotency.tla`) covering full daemon lifecycle (step-level states, resume-on-retry) with optional extended step-level retry counters
-- Release-only GHCR publish workflow for WBAB images (`.github/workflows/publish-ghcr.yml`)
+- Release-only GHCR publish workflow for WBAB images (`.github/workflows/release.yml`)
 - WineBot cert trust/import helper (`tools/winebot-trust-dev-cert.sh`) and real-e2e installer requirement when install is enabled
 - Concrete publish Dockerfiles: `tools/winbuild/Dockerfile`, `tools/packaging/Dockerfile`, `tools/signing/Dockerfile`
 - Policy gate enforces publish Dockerfiles use `debian:trixie-slim` and disallow `ubuntu` base images
 - Publish Dockerfile dry-check helper validates all publish Dockerfiles via `docker buildx build --check` (`scripts/publish/dockerfiles-drycheck.sh`)
-- Publish workflow references dry-check helper for local/CI parity before push (`.github/workflows/publish-ghcr.yml`)
+- Publish workflow references dry-check helper for local/CI parity before push (`.github/workflows/release.yml`)
 - Shell gate validates publish workflow order keeps dry-check step before image push step (`tests/shell/test_publish_workflow_drycheck_order.sh`)
 - Policy gate validates publish workflow order keeps dry-check step before image push step (`tests/policy/test_publish_security_gates.sh`)
 - Policy gate enforces dry-check step runs before GHCR login (fail-fast before credentials) and login runs before image push step
