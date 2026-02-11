@@ -140,8 +140,15 @@ jobs:
           export WBAB_ALLOW_LOCAL_BUILD=1
           export WBAB_BUILD_CMD="wbab-build-real"
           export WBAB_PACKAGE_CMD="wbab-package-real samples/validation-app/installer.nsi"
-          docker build -t ghcr.io/${{ github.repository_owner }}/winebotappbuilder-winbuild:local -f tools/winbuild/Dockerfile .
-          docker build -t ghcr.io/${{ github.repository_owner }}/winebotappbuilder-packager:local -f tools/packaging/Dockerfile .
+          
+          OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          docker build -t "ghcr.io/${OWNER_LC}/winebotappbuilder-winbuild:local" -f tools/winbuild/Dockerfile .
+          docker build -t "ghcr.io/${OWNER_LC}/winebotappbuilder-packager:local" -f tools/packaging/Dockerfile .
+          
+          # Force wbab to use the local images we just built
+          export WBAB_TOOLCHAIN_IMAGE="ghcr.io/${OWNER_LC}/winebotappbuilder-winbuild"
+          export WBAB_PACKAGER_IMAGE="ghcr.io/${OWNER_LC}/winebotappbuilder-packager"
+          export WBAB_TAG="local"
           
           ./tools/wbab build samples/validation-app
           ./tools/wbab package .
