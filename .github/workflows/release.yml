@@ -17,6 +17,9 @@ jobs:
         with:
           submodules: false
 
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
       - name: Install lint deps
         run: |
           sudo apt-get update
