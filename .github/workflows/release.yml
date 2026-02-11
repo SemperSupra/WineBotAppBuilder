@@ -35,19 +35,19 @@ jobs:
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: tools/winbuild/Dockerfile
-          command: hadolint --ignore DL3008
+          ignore: DL3008
 
       - name: Dockerfile hardening lint (Hadolint packaging)
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: tools/packaging/Dockerfile
-          command: hadolint --ignore DL3008
+          ignore: DL3008
 
       - name: Dockerfile hardening lint (Hadolint signing)
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: tools/signing/Dockerfile
-          command: hadolint --ignore DL3008
+          ignore: DL3008
 
       - name: Security vulnerability gate (Trivy fs)
         uses: aquasecurity/trivy-action@0.29.0
