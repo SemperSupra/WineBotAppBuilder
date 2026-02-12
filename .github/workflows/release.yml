@@ -139,7 +139,7 @@ jobs:
         run: |
           export WBAB_ALLOW_LOCAL_BUILD=1
           export WBAB_BUILD_CMD="wbab-build-real"
-          export WBAB_PACKAGE_CMD="wbab-package-real samples/validation-app/installer.nsi"
+          export WBAB_PACKAGE_CMD="wbab-package-real"
           
           OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           docker build -t "ghcr.io/${OWNER_LC}/winebotappbuilder-winbuild:local" -f tools/winbuild/Dockerfile .
@@ -151,7 +151,7 @@ jobs:
           export WBAB_TAG="local"
           
           ./tools/wbab build samples/validation-app
-          ./tools/wbab package .
+          ./tools/wbab package samples/validation-app
 
       - name: Create GitHub Release
         env:
