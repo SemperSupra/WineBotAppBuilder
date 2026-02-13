@@ -16,6 +16,12 @@ Agents may be used at different times; assume limited context. Follow the **Cont
 - Core business logic must not be duplicated in CLI/GUI/API adapters.
 - Commit policy: create one git commit per requested implementation change unless the user explicitly asks to batch changes.
 
+## Incremental Development
+When making changes to application code (e.g., in `samples/validation-app` or other project directories), you MUST use the following lifecycle to verify your work:
+1. `wbab lint <project-dir>`: Verify code style and static analysis.
+2. `wbab build <project-dir>`: Compile the artifacts.
+3. `wbab test <project-dir>`: Execute unit tests (runs in Wine if applicable).
+
 ## Local commands
 ```bash
 ./scripts/lint.sh

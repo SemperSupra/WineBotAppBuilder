@@ -16,7 +16,18 @@ Initialize the toolchain and dependencies:
 ./tools/wbab doctor
 ```
 
-## 3. Building an Application
+## 3. Linting and Static Analysis
+
+Code quality should be verified before building. The toolchain provides a `lint` command:
+
+```bash
+export WBAB_LINT_CMD="wbab-lint-real"
+./tools/wbab lint myapp/
+```
+
+By default, the `winbuild` toolchain includes `clang-tidy` for C++ analysis.
+
+## 4. Building an Application
 
 The toolchain supports **CMake** and **Makefile** projects. Place your source in a directory (e.g., `myapp/`) and run:
 
@@ -30,7 +41,16 @@ export WBAB_BUILD_CMD="wbab-build-real"
 
 Outputs will be placed in `myapp/out/`.
 
-## 4. Packaging an Installer
+## 5. Unit Testing
+
+Execute unit tests within the build container. If your tests are Windows binaries, the toolchain uses **Wine** to run them:
+
+```bash
+export WBAB_TEST_CMD="wbab-test-real"
+./tools/wbab test myapp/
+```
+
+## 6. Packaging an Installer
 
 Create an NSIS script (`installer.nsi`) in your project directory. Then package it:
 
@@ -41,7 +61,7 @@ export WBAB_PACKAGE_CMD="wbab-package-real installer.nsi"
 
 The installer will be created in `myapp/dist/`.
 
-## 5. Code Signing
+## 7. Code Signing
 
 ### Initialize PKI
 Before signing, initialize the internal CA:
@@ -59,7 +79,7 @@ export WBAB_SIGN_CMD="osslsigncode sign -pkcs12 .wbab/signing/pki/codesign.pfx -
 ./tools/wbab sign myapp/
 ```
 
-## 6. Smoke Testing with WineBot
+## 8. Smoke Testing with WineBot
 
 Run your signed installer in a headless Wine environment and collect evidence:
 
@@ -84,7 +104,7 @@ export WBAB_SMOKE_EXPECT_CONTENT="Success"
 
 Artifacts (logs, extracted files, screenshots) are saved in `artifacts/winebot/<timestamp>/`.
 
-## 7. Using the Daemon (API)
+## 9. Using the Daemon (API)
 
 For non-CLI automation, use `wbabd`:
 

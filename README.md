@@ -6,11 +6,14 @@ WBAB is designed for **deterministic automation**, providing a unified CLI that 
 
 ## Core Features
 - **Containerized Build:** Cross-compile Win32/Win64 apps using a stable toolchain (`wbab build`).
+- **Integrated Linting:** Run project-specific static analysis within the toolchain (`wbab lint`).
+- **Unit Testing:** Execute unit tests (including Windows binaries via Wine) (`wbab test`).
 - **Standardized Packaging:** Create NSIS installers in a controlled environment (`wbab package`).
 - **Secure Signing:** Integrated support for self-signed dev certs and production PKI (`wbab sign`).
 - **Headless Smoke Testing:** Run installers in WineBot (Docker-based Wine) and verify contents automatically (`wbab smoke`).
 - **Idempotent Daemon:** A core engine that handles retries and prevents redundant operations (`wbabd`).
 - **Agent-Ready:** Structured JSON planning (`wbab plan`) and audit logs for AI-driven development.
+- **Dev Container:** Full-featured VS Code development environment with all tools pre-installed.
 
 ## Quick Start
 
@@ -26,8 +29,14 @@ cd WineBotAppBuilder/workspace
 
 ### 3. Usage (The WBAB Pipeline)
 ```bash
+# Lint the project
+./tools/wbab lint samples/validation-app
+
 # Build your application
 ./tools/wbab build samples/validation-app
+
+# Run unit tests
+./tools/wbab test samples/validation-app
 
 # Package into an installer
 ./tools/wbab package samples/validation-app
@@ -38,6 +47,13 @@ cd WineBotAppBuilder/workspace
 # Smoke test the installer in WineBot
 ./tools/wbab smoke samples/validation-app
 ```
+
+## Core philosophy
+- The **core** must be usable concurrently by CLI/GUI/API without interference.
+- Idempotency is required for all operations, regardless of activation path.
+- UI-specific behavior lives outside core.
+- Default policy: **prefer GHCR** (pull-first), do not build locally unless explicitly enabled.
+- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:stable`** over local build.
 
 ## Documentation for Humans
 - **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
