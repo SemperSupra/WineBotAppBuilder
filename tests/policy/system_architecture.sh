@@ -29,7 +29,7 @@ grep -q "/wineprefix/drive_c/" "${smoke}" || {
   echo "POLICY FAILURE: winebot-smoke.sh missing standard Wine drive_c mapping prefix" >&2; exit 1; 
 }
 # Match the exact escaped slash pattern used in the script's sed-like substitution
-grep -q "\\\/public\\\/" "${smoke}" && grep -q "\\\/Public\\\/" "${smoke}" || { 
+{ grep -q "\\\/public\\\/" "${smoke}" && grep -q "\\\/Public\\\/" "${smoke}"; } || { 
   echo "POLICY FAILURE: winebot-smoke.sh missing Public folder casing retry logic" >&2; exit 1; 
 }
 
