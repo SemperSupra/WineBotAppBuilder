@@ -159,7 +159,7 @@ class AuditLog:
 
 class Planner:
     def plan(self, op_id: str, verb: str, args: List[str]) -> Plan:
-        if verb not in {"build", "package", "sign", "smoke", "doctor"}:
+        if verb not in {"build", "package", "sign", "smoke", "doctor", "lint", "test"}:
             raise ValueError(f"unsupported verb: {verb}")
         return Plan(
             op_id=op_id,
@@ -262,6 +262,10 @@ class Executor:
             raise ValueError("smoke requires installer path argument")
 
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
+        if verb == "lint":
+            return [str(self._tool_path("tools/winbuild-lint.sh")), *(args or ["."])]
+        if verb == "test":
+            return [str(self._tool_path("tools/winbuild-test.sh")), *(args or ["."])]
         if verb == "build":
             return [str(self._tool_path("tools/winbuild-build.sh")), *(args or ["."])]
         if verb == "package":

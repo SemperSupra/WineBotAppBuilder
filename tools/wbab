@@ -19,6 +19,8 @@ Usage:
   wbab <verb> [args...]
 
 Required verbs:
+  lint
+  test
   build
   package
   sign
@@ -27,7 +29,7 @@ Required verbs:
   plan
 
 Notes:
-- `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are implemented in the bring-up scaffold.
+- `lint`, `test`, `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are implemented in the bring-up scaffold.
 EOF
 }
 
@@ -107,6 +109,48 @@ cmd_plan() {
   local wbab_tag="${WBAB_TAG:-}"
 
   case "${target}" in
+    lint)
+      local project_dir="${1:-.}"
+      cat <<EOF
+{
+  "version": "0.1",
+  "command": "lint",
+  "inputs": {
+    "project_dir": "$(json_escape "${project_dir}")"
+  },
+  "policy": {
+    "allow_local_build": "${allow_local_build}",
+    "toolchain_image": "$(json_escape "${toolchain_image}")",
+    "toolchain_tag": "$(json_escape "${toolchain_tag}")"
+  },
+  "steps": [
+    "pull_toolchain_image_by_default",
+    "run_containerized_lint_command"
+  ]
+}
+EOF
+      ;;
+    test)
+      local project_dir="${1:-.}"
+      cat <<EOF
+{
+  "version": "0.1",
+  "command": "test",
+  "inputs": {
+    "project_dir": "$(json_escape "${project_dir}")"
+  },
+  "policy": {
+    "allow_local_build": "${allow_local_build}",
+    "toolchain_image": "$(json_escape "${toolchain_image}")",
+    "toolchain_tag": "$(json_escape "${toolchain_tag}")"
+  },
+  "steps": [
+    "pull_toolchain_image_by_default",
+    "run_containerized_test_command"
+  ]
+}
+EOF
+      ;;
     smoke)
       local installer="${1:-}"
       require_arg "${installer}" "installer path for smoke plan"
@@ -229,6 +273,22 @@ cmd_smoke() {
   "${SMOKE_RUNNER}" "$@"
 }
 
+cmd_lint() {
+  LINT_RUNNER="${ROOT_DIR}/tools/winbuild-lint.sh"
+  if [[ ! -x "${LINT_RUNNER}" ]]; then
+    die "lint runner not found or not executable: ${LINT_RUNNER}"
+  fi
+  "${LINT_RUNNER}" "$@"
+}
+
+cmd_test() {
+  TEST_RUNNER="${ROOT_DIR}/tools/winbuild-test.sh"
+  if [[ ! -x "${TEST_RUNNER}" ]]; then
+    die "test runner not found or not executable: ${TEST_RUNNER}"
+  fi
+  "${TEST_RUNNER}" "$@"
+}
+
 cmd_build() {
   if [[ ! -x "${BUILD_RUNNER}" ]]; then
     die "build runner not found or not executable: ${BUILD_RUNNER}"
@@ -263,6 +323,12 @@ case "${verb}" in
     ;;
   smoke)
     cmd_smoke "$@"
+    ;;
+  lint)
+    cmd_lint "$@"
+    ;;
+  test)
+    cmd_test "$@"
     ;;
   build)
     cmd_build "$@"
