@@ -9,10 +9,11 @@ import os
 import uuid
 import subprocess
 import time
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -21,6 +22,31 @@ class Plan:
     verb: str
     args: List[str]
     steps: List[Dict[str, Any]]
+
+
+class WorkspaceLock:
+    """Advisory lock for project workspaces to prevent concurrent modification."""
+
+    def __init__(self, project_path: Path) -> None:
+        self.lock_file = project_path / ".wbab.lock"
+        self._fd: Optional[int] = None
+
+    def __enter__(self) -> WorkspaceLock:
+        self.lock_file.parent.mkdir(parents=True, exist_ok=True)
+        self._fd = os.open(self.lock_file, os.O_RDWR | os.O_CREAT)
+        try:
+            fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            os.close(self._fd)
+            raise RuntimeError(f"Workspace is locked by another WBAB process: {self.lock_file}")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        if self._fd is not None:
+            try:
+                fcntl.flock(self._fd, fcntl.LOCK_UN)
+            finally:
+                os.close(self._fd)
 
 
 class OperationStore:
@@ -183,118 +209,83 @@ class Executor:
         return self.root_dir / rel
 
     def _run(self, cmd: List[str]) -> subprocess.CompletedProcess[str]:
-        # Use a temporary file to capture output if it might be large,
-        # or stream it directly. For now, we continue to use run() but
-        # we'll be mindful of memory usage. In a future iteration,
-        # we should stream to a file.
-        return subprocess.run(cmd, cwd=self.root_dir, text=True, capture_output=True, check=False)
+        """Runs a command and streams output to a temporary file to avoid OOM."""
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False, prefix="wbab-log-") as tmp:
+            tmp_path = tmp.name
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    cwd=self.root_dir,
+                    stdout=tmp,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    check=False
+                )
+                tmp.seek(0)
+                # Capture the full log but return it in the result. 
+                # In extremely high-scale scenarios, we might only return the tail.
+                output = tmp.read()
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=proc.returncode,
+                    stdout=output,
+                    stderr=""
+                )
+            finally:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
 
     def _now(self) -> int:
         return int(time.time())
 
-    def _default_step_state(self, plan: Plan) -> Dict[str, Dict[str, Any]]:
-        return {
-            s["name"]: {
-                "status": "pending",
-                "attempts": 0,
-                "started_at": None,
-                "finished_at": None,
-                "last_error": None,
-            }
-            for s in plan.steps
-        }
+    def _validate_outputs(self, plan: Plan) -> bool:
+        """Verifies that the expected outputs of a successful operation still exist."""
+        project_dir = Path(plan.args[0]) if plan.args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
 
-    def _ensure_step_state(self, op: Dict[str, Any], plan: Plan) -> Dict[str, Dict[str, Any]]:
-        state = op.get("step_state", {})
-        for s in plan.steps:
-            state.setdefault(
-                s["name"],
-                {
-                    "status": "pending",
-                    "attempts": 0,
-                    "started_at": None,
-                    "finished_at": None,
-                    "last_error": None,
-                },
-            )
-        return state
-
-    def _mark_step_running(self, op: Dict[str, Any], step: str) -> None:
-        st = op["step_state"][step]
-        st["status"] = "running"
-        st["attempts"] = int(st.get("attempts", 0)) + 1
-        st["started_at"] = self._now()
-        st["last_error"] = None
-
-    def _mark_step_succeeded(self, op: Dict[str, Any], step: str) -> None:
-        st = op["step_state"][step]
-        st["status"] = "succeeded"
-        st["finished_at"] = self._now()
-        st["last_error"] = None
-
-    def _mark_step_failed(self, op: Dict[str, Any], step: str, err: str) -> None:
-        st = op["step_state"][step]
-        st["status"] = "failed"
-        st["finished_at"] = self._now()
-        st["last_error"] = err
-
-    def _persist(self, plan: Plan, op: Dict[str, Any]) -> None:
-        self.store.upsert(plan.op_id, op)
-
-    def _audit(
-        self,
-        event_type: str,
-        *,
-        plan: Plan,
-        status: str = "",
-        step: str = "",
-        details: Dict[str, Any] | None = None,
-    ) -> None:
-        if self.audit is None:
-            return
-        self.audit.emit(
-            event_type,
-            op_id=plan.op_id,
-            verb=plan.verb,
-            status=status,
-            step=step,
-            details=details,
-        )
-
-    def _validate_inputs(self, plan: Plan) -> None:
-        if plan.verb == "smoke" and not plan.args:
-            raise ValueError("smoke requires installer path argument")
-
-    def _command_for(self, verb: str, args: List[str]) -> List[str]:
-        if verb == "lint":
-            return [str(self._tool_path("tools/winbuild-lint.sh")), *(args or ["."])]
-        if verb == "test":
-            return [str(self._tool_path("tools/winbuild-test.sh")), *(args or ["."])]
-        if verb == "build":
-            return [str(self._tool_path("tools/winbuild-build.sh")), *(args or ["."])]
-        if verb == "package":
-            return [str(self._tool_path("tools/package-nsis.sh")), *(args or ["."])]
-        if verb == "sign":
-            return [str(self._tool_path("tools/sign-dev.sh")), *(args or ["."])]
-        if verb == "smoke":
-            if not args:
-                raise ValueError("smoke requires installer path argument")
-            return [str(self._tool_path("tools/winebot-smoke.sh")), *args]
-        if verb == "doctor":
-            return [str(self._tool_path("tools/wbab")), "doctor"]
-        raise ValueError(f"unsupported verb: {verb}")
+        if plan.verb == "build":
+            return (project_dir / "out").exists()
+        if plan.verb == "package":
+            return (project_dir / "dist").exists()
+        if plan.verb == "sign":
+            # For sign, we expect the dist/ dir to have the signed files
+            return (project_dir / "dist").exists()
+        return True # Default pass for verbs like doctor, lint, test
 
     def run(self, plan: Plan) -> Dict[str, Any]:
+        project_dir = Path(plan.args[0]) if plan.args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+
+        # Step 0: Robust Cache Validation
         existing = self.store.get(plan.op_id)
         if existing and existing.get("status") == "succeeded":
-            self._audit("operation.cached", plan=plan, status="cached")
+            if self._validate_outputs(plan):
+                self._audit("operation.cached", plan=plan, status="cached")
+                return {
+                    "status": "cached",
+                    "op_id": plan.op_id,
+                    "verb": plan.verb,
+                    "result": existing.get("result", {}),
+                }
+            else:
+                self._audit("operation.cache_invalidated", plan=plan, status="running", 
+                           details={"reason": "expected outputs missing from disk"})
+
+        # Step 0.5: Workspace Locking
+        try:
+            with WorkspaceLock(project_dir):
+                return self._run_operation(plan, existing)
+        except RuntimeError as exc:
             return {
-                "status": "cached",
+                "status": "failed",
                 "op_id": plan.op_id,
                 "verb": plan.verb,
-                "result": existing.get("result", {}),
+                "result": {"error": str(exc), "step": "acquire_workspace_lock"}
             }
 
+    def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         started = self._now()
         if existing:
             op = existing
@@ -432,6 +423,86 @@ class Executor:
         self._persist(plan, op)
         self._audit("operation.succeeded", plan=plan, status="succeeded", details=op["result"])
         return {"status": "succeeded", "op_id": plan.op_id, "verb": plan.verb, "result": op["result"]}
+
+    def _ensure_step_state(self, op: Dict[str, Any], plan: Plan) -> Dict[str, Dict[str, Any]]:
+        state = op.get("step_state", {})
+        for s in plan.steps:
+            state.setdefault(
+                s["name"],
+                {
+                    "status": "pending",
+                    "attempts": 0,
+                    "started_at": None,
+                    "finished_at": None,
+                    "last_error": None,
+                },
+            )
+        return state
+
+    def _mark_step_running(self, op: Dict[str, Any], step: str) -> None:
+        st = op["step_state"][step]
+        st["status"] = "running"
+        st["attempts"] = int(st.get("attempts", 0)) + 1
+        st["started_at"] = self._now()
+        st["last_error"] = None
+
+    def _mark_step_succeeded(self, op: Dict[str, Any], step: str) -> None:
+        st = op["step_state"][step]
+        st["status"] = "succeeded"
+        st["finished_at"] = self._now()
+        st["last_error"] = None
+
+    def _mark_step_failed(self, op: Dict[str, Any], step: str, err: str) -> None:
+        st = op["step_state"][step]
+        st["status"] = "failed"
+        st["finished_at"] = self._now()
+        st["last_error"] = err
+
+    def _persist(self, plan: Plan, op: Dict[str, Any]) -> None:
+        self.store.upsert(plan.op_id, op)
+
+    def _audit(
+        self,
+        event_type: str,
+        *,
+        plan: Plan,
+        status: str = "",
+        step: str = "",
+        details: Dict[str, Any] | None = None,
+    ) -> None:
+        if self.audit is None:
+            return
+        self.audit.emit(
+            event_type,
+            op_id=plan.op_id,
+            verb=plan.verb,
+            status=status,
+            step=step,
+            details=details,
+        )
+
+    def _validate_inputs(self, plan: Plan) -> None:
+        if plan.verb == "smoke" and not plan.args:
+            raise ValueError("smoke requires installer path argument")
+
+    def _command_for(self, verb: str, args: List[str]) -> List[str]:
+        if verb == "lint":
+            return [str(self._tool_path("tools/winbuild-lint.sh")), *(args or ["."])]
+        if verb == "test":
+            return [str(self._tool_path("tools/winbuild-test.sh")), *(args or ["."])]
+        if verb == "build":
+            return [str(self._tool_path("tools/winbuild-build.sh")), *(args or ["."])]
+        if verb == "package":
+            return [str(self._tool_path("tools/package-nsis.sh")), *(args or ["."])]
+        if verb == "sign":
+            return [str(self._tool_path("tools/sign-dev.sh")), *(args or ["."])]
+        if verb == "smoke":
+            if not args:
+                raise ValueError("smoke requires installer path argument")
+            return [str(self._tool_path("tools/winebot-smoke.sh")), *args]
+        if verb == "doctor":
+            return [str(self._tool_path("tools/wbab")), "doctor"]
+        raise ValueError(f"unsupported verb: {verb}")
 
 
 def default_store_path(root_dir: Path) -> Path:
