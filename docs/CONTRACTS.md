@@ -29,6 +29,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_BUILD_CMD` (default creates `out/FakeApp.exe` and `out/build-fixture.txt`): build command executed in toolchain container
 - `WBAB_LINT_CMD` (default `wbab-lint`): lint command executed in toolchain container
 - `WBAB_TEST_CMD` (default `wbab-test`): test command executed in toolchain container
+- `WBAB_EXECUTION_TIMEOUT_SECS` (default `3600`): max seconds for a single execution step
 - `WBAB_PACKAGER_IMAGE` (default `ghcr.io/sempersupra/winebotappbuilder-packager`): packager image
 - `WBAB_PACKAGER_DOCKERFILE` (default `tools/packaging/Dockerfile`): local packager Dockerfile path
 - `WBAB_PACKAGE_CMD` (default consumes `out/FakeApp.exe`, creates `dist/FakeSetup.exe` + `dist/package-fixture.txt`): package command executed in packager container

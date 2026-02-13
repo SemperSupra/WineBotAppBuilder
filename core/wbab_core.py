@@ -209,7 +209,8 @@ class Executor:
         return self.root_dir / rel
 
     def _run(self, cmd: List[str]) -> subprocess.CompletedProcess[str]:
-        """Runs a command and streams output to a temporary file to avoid OOM."""
+        """Runs a command with timeout and streams output to a temporary file."""
+        timeout = float(os.environ.get("WBAB_EXECUTION_TIMEOUT_SECS", "3600")) # Default 1 hour
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, prefix="wbab-log-") as tmp:
             tmp_path = tmp.name
             try:
@@ -219,16 +220,22 @@ class Executor:
                     stdout=tmp,
                     stderr=subprocess.STDOUT,
                     text=True,
-                    check=False
+                    check=False,
+                    timeout=timeout
                 )
                 tmp.seek(0)
-                # Capture the full log but return it in the result. 
-                # In extremely high-scale scenarios, we might only return the tail.
                 output = tmp.read()
                 return subprocess.CompletedProcess(
                     args=cmd,
                     returncode=proc.returncode,
                     stdout=output,
+                    stderr=""
+                )
+            except subprocess.TimeoutExpired:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=124, # Standard timeout exit code
+                    stdout=f"ERROR: Execution timed out after {timeout} seconds",
                     stderr=""
                 )
             finally:
@@ -237,6 +244,13 @@ class Executor:
 
     def _now(self) -> int:
         return int(time.time())
+
+    def _get_backoff_delay(self, attempts: int) -> int:
+        """Calculates exponential backoff delay in seconds."""
+        if attempts <= 1:
+            return 0
+        # 2, 4, 8, 16, 32... capped at 5 minutes
+        return min(300, 2 ** attempts)
 
     def _validate_outputs(self, plan: Plan) -> bool:
         """Verifies that the expected outputs of a successful operation still exist."""
@@ -288,6 +302,23 @@ class Executor:
     def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         started = self._now()
         if existing:
+            # Check throttling
+            last_attempt = existing.get("last_attempt_at", 0)
+            attempts = existing.get("attempts", 0)
+            backoff = self._get_backoff_delay(attempts)
+            if started < (last_attempt + backoff):
+                wait_secs = (last_attempt + backoff) - started
+                return {
+                    "status": "failed",
+                    "op_id": plan.op_id,
+                    "verb": plan.verb,
+                    "result": {
+                        "error": f"Retry throttled. Please wait {wait_secs} seconds.",
+                        "step": "throttling_check",
+                        "retry_after_secs": wait_secs
+                    }
+                }
+
             op = existing
             op["verb"] = plan.verb
             op["args"] = plan.args
