@@ -1,0 +1,28 @@
+{
+    "name": "WineBotAppBuilder Dev Environment",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "ms-python.python",
+                "timonwong.shellcheck",
+                "ms-azuretools.vscode-docker"
+            ],
+            "settings": {
+                "python.linting.enabled": true,
+                "python.linting.ruffEnabled": true,
+                "editor.formatOnSave": true
+            }
+        }
+    },
+    "remoteUser": "vscode",
+    "postCreateCommand": "./scripts/bootstrap-submodule.sh && wbab doctor",
+    "forwardPorts": [8080]
+}
