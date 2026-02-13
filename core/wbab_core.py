@@ -83,6 +83,7 @@ class OperationStore:
     def _new_store(self) -> Dict[str, Any]:
         return {
             "schema_version": self.SCHEMA_VERSION,
+            "instance_id": str(uuid.uuid4()),
             "operations": {},
         }
 
@@ -101,10 +102,13 @@ class OperationStore:
             normalized = dict(data)
             if not isinstance(normalized.get("operations"), dict):
                 normalized["operations"] = {}
+            if "instance_id" not in normalized:
+                normalized["instance_id"] = str(uuid.uuid4())
             return normalized
         if schema == self.LEGACY_SCHEMA:
             return {
                 "schema_version": self.SCHEMA_VERSION,
+                "instance_id": str(uuid.uuid4()),
                 "operations": data.get("operations", {}) if isinstance(data.get("operations"), dict) else {},
                 "migration": {
                     "from_schema": self.LEGACY_SCHEMA,
@@ -112,6 +116,16 @@ class OperationStore:
                 },
             }
         raise ValueError(f"unsupported store schema: {schema}")
+
+    def get_instance_id(self) -> str:
+        with open(self.path, "r") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_SH)
+                content = f.read()
+                data = json.loads(content) if content else self._new_store()
+                return data.get("instance_id", str(uuid.uuid4()))
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
 
     def get(self, op_id: str) -> Dict[str, Any] | None:
         with open(self.path, "r") as f:

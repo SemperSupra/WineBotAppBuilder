@@ -26,10 +26,11 @@ Required verbs:
   sign
   smoke
   doctor
+  discover
   plan
 
 Notes:
-- `lint`, `test`, `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are implemented in the bring-up scaffold.
+- `lint`, `test`, `doctor`, `discover`, `build`, `package`, `sign`, `smoke`, and `plan` are implemented in the bring-up scaffold.
 EOF
 }
 
@@ -46,6 +47,30 @@ require_arg() {
   fi
 }
 
+cmd_discover() {
+  echo "Scanning local network for WBAB daemons..."
+  python3 -c '
+import asyncio
+import json
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path("'"${ROOT_DIR}"'")
+sys.path.insert(0, str(ROOT_DIR))
+try:
+    from core.discovery import DiscoveryBrowser
+    async def run():
+        browser = DiscoveryBrowser()
+        peers = await browser.discover(timeout=2.0)
+        print(json.dumps(peers, indent=2))
+        browser.close()
+    asyncio.run(run())
+except ImportError:
+    print("ERROR: zeroconf library missing. Run pip install zeroconf", file=sys.stderr)
+    sys.exit(1)
+'
+}
+
 cmd_doctor() {
   local ok=1
 
@@ -60,6 +85,13 @@ cmd_doctor() {
     fi
   else
     echo "doctor: missing docker" >&2
+    ok=0
+  fi
+
+  if python3 -c "import zeroconf" >/dev/null 2>&1; then
+    echo "doctor: zeroconf python library available"
+  else
+    echo "doctor: missing zeroconf library (pip install zeroconf)" >&2
     ok=0
   fi
 
@@ -320,6 +352,9 @@ verb="$1"; shift || true
 case "${verb}" in
   doctor)
     cmd_doctor "$@"
+    ;;
+  discover)
+    cmd_discover "$@"
     ;;
   smoke)
     cmd_smoke "$@"

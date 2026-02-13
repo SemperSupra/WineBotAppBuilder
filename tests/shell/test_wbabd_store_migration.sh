@@ -8,6 +8,7 @@ trap 'rm -rf "${TMP}"' EXIT
 mkdir -p "${TMP}/tools" "${TMP}/core"
 cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
 cp "${ROOT_DIR}/core/wbab_core.py" "${TMP}/core/wbab_core.py"
+cp "${ROOT_DIR}/core/discovery.py" "${TMP}/core/discovery.py"
 chmod +x "${TMP}/tools/wbabd"
 
 store="${TMP}/legacy-store.json"

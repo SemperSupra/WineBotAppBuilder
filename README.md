@@ -12,6 +12,7 @@ WBAB is designed for **deterministic automation**, providing a unified CLI that 
 - **Secure Signing:** Integrated support for self-signed dev certs and production PKI (`wbab sign`).
 - **Headless Smoke Testing:** Run installers in WineBot (Docker-based Wine) and verify contents automatically (`wbab smoke`).
 - **Idempotent Daemon:** A core engine that handles retries and prevents redundant operations (`wbabd`).
+- **Network Discovery:** Zero-configuration local network discovery using mDNS (`wbab discover`).
 - **Agent-Ready:** Structured JSON planning (`wbab plan`) and audit logs for AI-driven development.
 - **Dev Container:** Full-featured VS Code development environment with all tools pre-installed.
 
@@ -46,6 +47,9 @@ cd WineBotAppBuilder/workspace
 
 # Smoke test the installer in WineBot
 ./tools/wbab smoke samples/validation-app
+
+# Discover remote WBAB nodes on your network
+./tools/wbab discover
 ```
 
 ## Core philosophy

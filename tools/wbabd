@@ -18,6 +18,7 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
 from core.wbab_core import AuditLog, Executor, OperationStore, Planner, default_audit_path, default_store_path  # noqa: E402
+from core.discovery import DiscoveryManager # noqa: E402
 
 
 def usage() -> None:
@@ -468,14 +469,50 @@ async def _serve_async(host, port, store, planner, executor, auth_mode, token, p
     _timeout = _http_request_timeout_secs() # Trigger validation
     tls_ctx = _tls_context_from_env()
     
+    # Initialize Discovery
+    instance_id = store.get_instance_id()
+    discovery = None
+    try:
+        discovery = DiscoveryManager(instance_id=instance_id)
+    except (ImportError, NameError):
+        print("wbabd: discovery disabled (zeroconf library not found)", file=sys.stderr)
+
+    allow_multi = os.environ.get("WBABD_ALLOW_MULTIPLE_INSTANCES", "0") == "1"
+
     server = await asyncio.start_server(
         lambda r, w: _handle_http(r, w, store, planner, executor, auth_mode, token, policy, audit, max_body),
         host, port, ssl=tls_ctx
     )
     
-    print(json.dumps({"status": "listening", "host": host, "port": port, "tls": tls_ctx is not None, "async": True}))
+    # Get actual port (important if 0 was requested)
+    actual_port = server.sockets[0].getsockname()[1]
+    
+    # Start announcing
+    if discovery:
+        try:
+            await discovery.start_announcing(actual_port, allow_multi=allow_multi)
+        except RuntimeError as exc:
+            print(f"wbabd: {exc}", file=sys.stderr)
+            server.close()
+            await server.wait_closed()
+            sys.exit(1)
+
+    print(json.dumps({
+        "status": "listening", 
+        "host": host, 
+        "port": actual_port, 
+        "tls": tls_ctx is not None, 
+        "async": True,
+        "discovery": "active" if discovery else "disabled",
+        "instance_id": instance_id
+    }))
+
     async with server:
-        await server.serve_forever()
+        try:
+            await server.serve_forever()
+        finally:
+            if discovery:
+                discovery.stop_announcing()
 
 
 def _run_inline_preflight(root_dir: Path) -> tuple[bool, str, dict]:
