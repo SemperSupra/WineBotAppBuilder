@@ -1,72 +1,57 @@
-# WineBotAppBuilder (bring-up scaffold)
+# WineBotAppBuilder (WBAB)
 
-This zip contains the initial bring-up files for the **WineBotAppBuilder** project:
-- repo governance + agent-friendly docs
-- pull-first winbuild runner script (containerized build; no local builds by default)
-- pull-first packaging runner script (containerized package; no local builds by default)
-- concrete winbuild fixture script (`tools/winbuild/build-fixture.sh`)
-- concrete packaging fixture script (`tools/packaging/package-fixture.sh`)
-- pull-first signing runner script (containerized sign; no local builds by default)
-- dev signing cert lifecycle script (`scripts/signing/dev-cert.sh`)
-- production-like signing PKI lifecycle script (`scripts/signing/signing-pki.sh`)
-- TLA+ model skeleton for daemon idempotency/retry (`formal/tla/DaemonIdempotency.tla`)
-- optional extended TLA+ invariants config for step retry counters (`formal/tla/DaemonIdempotencyExtended.cfg`)
-- pull-first WineBot runner scripts (prefers official GHCR stable, no local builds by default)
-- contract tests (CLI verbs, env vars)
-- CI gates (lint + unit + contract + policy + mocked e2e-smoke)
-- opt-in real e2e workflow (`workflow_dispatch`) for non-mocked Docker/WineBot validation
-- real e2e workflow uploads `artifacts/`, `out/`, and `dist/` for post-run evidence
-- real e2e path validates non-fixture installer input and records checksum/manifest evidence
-- release-only GHCR publish workflow for WBAB images (`.github/workflows/release.yml`)
-- core baseline planner/executor + idempotent op store (`core/wbab_core.py`, `tools/wbabd`)
-- daemon shim API for non-CLI adapters via `tools/wbabd api` (optional HTTP via `tools/wbabd serve`)
-- append-only audit stream for command/operation traceability (`.wbab/audit-log.jsonl`)
-- daemon API security hardening plan (`docs/DAEMON_API_SECURITY_PLAN.md`)
-- daemon internal PKI helper (`scripts/security/daemon-pki.sh`)
-- daemon deploy profile (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- daemon deploy templates (`deploy/daemon/`)
-- daemon preflight validation script (`scripts/security/daemon-preflight.sh`)
-- daemon preflight diagnostics summary (`.wbab/preflight-status.json`, `preflight_status`)
-- daemon preflight trend counters (`.wbab/preflight-counters.json`, `command.preflight` counters)
-- daemon preflight trend report helper (`scripts/security/preflight-trend-report.sh`)
-- daemon preflight trend threshold gate helper (`scripts/security/preflight-trend-threshold-check.sh`)
-- daemon preflight trend API (`preflight_trend`, `/preflight-trend`)
-- opt-in CI policy workflow enabling trend threshold gate (`.github/workflows/policy-preflight-trend-gate-optin.yml`)
+A production-ready, containerized toolchain for building, packaging, signing, and testing Windows applications on Linux.
 
-## How to build your own application
+WBAB is designed for **deterministic automation**, providing a unified CLI that ensures the same environment is used across developer machines, CI/CD pipelines, and AI agents.
 
-See the [User Guide](docs/USER_GUIDE.md) for step-by-step instructions on building, packaging, signing, and testing your Windows apps.
+## Core Features
+- **Containerized Build:** Cross-compile Win32/Win64 apps using a stable toolchain (`wbab build`).
+- **Standardized Packaging:** Create NSIS installers in a controlled environment (`wbab package`).
+- **Secure Signing:** Integrated support for self-signed dev certs and production PKI (`wbab sign`).
+- **Headless Smoke Testing:** Run installers in WineBot (Docker-based Wine) and verify contents automatically (`wbab smoke`).
+- **Idempotent Daemon:** A core engine that handles retries and prevents redundant operations (`wbabd`).
+- **Agent-Ready:** Structured JSON planning (`wbab plan`) and audit logs for AI-driven development.
 
-## Quick start
+## Quick Start
 
+### 1. Prerequisites
+Ensure you have Docker and the GitHub CLI installed.
+
+### 2. Installation
 ```bash
-unzip winebot-appbuilder-bringup.zip
-cd winebot-appbuilder-bringup
-git init
-./scripts/bootstrap-submodule.sh
-git add .
-git commit -m "Initial bring-up scaffold"
-```
-
-### Add WineBot as a submodule
-This scaffold includes a placeholder directory at `tools/WineBot/` so paths are stable, but you should replace it with a real submodule:
-
-```bash
+git clone https://github.com/SemperSupra/WineBotAppBuilder.git
+cd WineBotAppBuilder/workspace
 ./scripts/bootstrap-submodule.sh
 ```
 
-## Core philosophy
+### 3. Usage (The WBAB Pipeline)
+```bash
+# Build your application
+./tools/wbab build samples/validation-app
 
-- The **core** must be usable concurrently by CLI/GUI/API without interference.
-- Idempotency is required for all operations, regardless of activation path.
-- UI-specific behavior lives outside core.
-- Default policy: **prefer GHCR** (pull-first), do not build locally unless explicitly enabled.
-- Toolchain build execution: pull-first runner (`tools/winbuild-build.sh`) via `wbab build`.
-- Installer packaging execution: pull-first runner (`tools/package-nsis.sh`) via `wbab package`.
-- Artifact signing execution: pull-first runner (`tools/sign-dev.sh`) via `wbab sign`.
-- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:stable`** over local build.
+# Package into an installer
+./tools/wbab package samples/validation-app
 
-See:
-- `AGENTS.md`
-- `docs/CONTEXT_BUNDLE.md`
-- `docs/CONTRACTS.md`
+# Sign the installer (auto-generates dev cert if needed)
+./tools/wbab sign samples/validation-app
+
+# Smoke test the installer in WineBot
+./tools/wbab smoke samples/validation-app
+```
+
+## Documentation for Humans
+- **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
+- **[Contracts](docs/CONTRACTS.md):** Definition of stable CLI verbs and environment variables.
+- **[Daemon Security](docs/DAEMON_API_SECURITY_PLAN.md):** Security architecture and deployment profiles.
+
+## Documentation for Agents
+- **[AGENTS.md](AGENTS.md):** The primary playbook for AI agents (context windows, commit policies).
+- **[CONTEXT_BUNDLE.md](docs/CONTEXT_BUNDLE.md):** Technical deep-dive for establishing agent context.
+- **[Formal Model](docs/FORMAL_MODEL_HOWTO.md):** Guidance on the TLA+ idempotency specifications.
+
+## Project Policy
+- **Pull-First:** By default, WBAB pulls official images from `ghcr.io/sempersupra`. Local builds of the toolchain are disabled unless `WBAB_ALLOW_LOCAL_BUILD=1` is set.
+- **Atomic Commits:** One commit per implementation change is strictly enforced for traceability.
+
+---
+*For historical bring-up notes, see [docs/BRINGUP.md](docs/BRINGUP.md).*
