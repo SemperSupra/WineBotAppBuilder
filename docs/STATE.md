@@ -46,6 +46,7 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 - WineBot cert trust/import helper (`tools/winebot-trust-dev-cert.sh`) and real-e2e installer requirement when install is enabled
 - Concrete publish Dockerfiles: `tools/winbuild/Dockerfile`, `tools/packaging/Dockerfile`, `tools/signing/Dockerfile`
 - Policy gate enforces publish Dockerfiles use `debian:trixie-slim` and disallow `ubuntu` base images
+- Policy gate verifies system architecture and path conventions (includes SC2015 fix for casing retry logic)
 - Publish Dockerfile dry-check helper validates all publish Dockerfiles via `docker buildx build --check` (`scripts/publish/dockerfiles-drycheck.sh`)
 - Publish workflow references dry-check helper for local/CI parity before push (`.github/workflows/release.yml`)
 - Shell gate validates publish workflow order keeps dry-check step before image push step (`tests/shell/test_publish_workflow_drycheck_order.sh`)

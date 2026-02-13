@@ -22,10 +22,11 @@ The bring-up phase is complete. The system is verified via a multi-component sam
 
 ## Achievements
 - [x] Consolidate release automation into a single `release.yml` workflow.
-- [x] Fix Hadolint and Shellcheck issues across the entire codebase.
+- [x] Fix Hadolint and Shellcheck issues across the entire codebase (latest: SC2015 fix in policy tests).
 - [x] Successfully verify the toolchain via real-world CMake/NSIS builds in CI.
 - [x] Implement robust file locking in the daemon core to prevent state corruption.
 - [x] Automate SBOM generation and vulnerability scanning in the release pipeline.
+- [x] Full local verification suite pass (2026-02-13).
 
 ## Active Constraints
 - **Pull-first Policy**: `tools/wbab` defaults to official GHCR images.
