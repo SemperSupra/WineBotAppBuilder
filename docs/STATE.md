@@ -162,6 +162,21 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 - TLA policy assertion keeps context synchronization note adjacent to contracts checklist cross-reference
 - TLA policy assertion enforces synchronization note references both contracts + formal-model how-to docs
 
+## Audit Findings (2026-02-13)
+### Correctness & Robustness
+- **Resource Management**: Implemented safer subprocess execution in `wbab_core.py` to mitigate memory exhaustion risks from large logs.
+- **Concurrency**: Verified `fcntl` locking for the daemon store. Recommended workspace-level locking for future multi-tenant scenarios.
+- **State Machines**: Mapped System (Pending->Running->Succeeded/Failed) and UI (Planning->Activation->Monitoring) lifecycles. Verified idempotency of all step transitions.
+- **Linting**: Fixed SC2215 warnings in new lint/test runners. All source files now pass `shellcheck` and repo-wide gates.
+
+### Performance & Scalability
+- **Strategy**: Pull-first policy remains the primary performance driver by avoiding redundant toolchain builds.
+- **Scalability**: Daemon architecture supports multiple local/remote clients. Recommended `asyncio` transition for high-concurrency needs.
+
+### Security & Safety
+- **Verification**: Confirmed Bearer Token, AuthZ Policy, and TLS/mTLS implementations align with the Security Plan.
+- **Trade-offs**: Balanced high security (mTLS) with ease-of-use via automated PKI helpers.
+
 ## What is not included (yet)
 - Model-based tests
 - Public release of toolchain images

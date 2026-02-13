@@ -40,8 +40,8 @@ else
   docker pull "${REMOTE_IMAGE}"
 fi
 
-docker run --rm 
-  -v "${PROJECT_DIR_ABS}:/workspace" 
-  -w /workspace 
-  "${IMAGE_TO_RUN}" 
+docker run --rm \
+  -v "${PROJECT_DIR_ABS}:/workspace" \
+  -w /workspace \
+  "${IMAGE_TO_RUN}" \
   bash -lc "${TEST_CMD}"

@@ -183,6 +183,10 @@ class Executor:
         return self.root_dir / rel
 
     def _run(self, cmd: List[str]) -> subprocess.CompletedProcess[str]:
+        # Use a temporary file to capture output if it might be large,
+        # or stream it directly. For now, we continue to use run() but
+        # we'll be mindful of memory usage. In a future iteration,
+        # we should stream to a file.
         return subprocess.run(cmd, cwd=self.root_dir, text=True, capture_output=True, check=False)
 
     def _now(self) -> int:

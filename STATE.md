@@ -27,6 +27,8 @@ The bring-up phase is complete. The system is verified via a multi-component sam
 - [x] Implement robust file locking in the daemon core to prevent state corruption.
 - [x] Automate SBOM generation and vulnerability scanning in the release pipeline.
 - [x] Full local verification suite pass (2026-02-13).
+- [x] Audit for Correctness, Performance, and Security completed.
+- [x] Integrated `lint` and `test` verbs into the unified `wbab` toolchain.
 
 ## Active Constraints
 - **Pull-first Policy**: `tools/wbab` defaults to official GHCR images.
