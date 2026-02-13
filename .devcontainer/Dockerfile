@@ -1,17 +1,17 @@
 FROM mcr.microsoft.com/devcontainers/base:debian-12
 
-RUN apt-get update && apt-get install -y --no-install-recommends 
-    shellcheck 
-    cmake 
-    make 
-    python3-pip 
-    python3-venv 
-    jq 
+# Install dependencies needed to drive the wbab lifecycle (Docker-in-Docker, Python, JQ, etc.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    shellcheck \
+    cmake \
+    make \
+    python3-pip \
+    python3-venv \
+    jq \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install wbab to path for convenience
-COPY tools/wbab /usr/local/bin/wbab
-RUN chmod +x /usr/local/bin/wbab
-
-# Add workspace to path for other scripts
+# Note: wbab toolchain is available via the workspace mount, not baked into the image.
+# This ensures consistency between devcontainer and standalone usage.
 ENV PATH="/workspace/tools:/workspace/scripts:${PATH}"

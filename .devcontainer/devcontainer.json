@@ -23,6 +23,6 @@
         }
     },
     "remoteUser": "vscode",
-    "postCreateCommand": "./scripts/bootstrap-submodule.sh && wbab doctor",
+    "postCreateCommand": "./scripts/bootstrap-submodule.sh && ./tools/wbab doctor",
     "forwardPorts": [8080]
 }
