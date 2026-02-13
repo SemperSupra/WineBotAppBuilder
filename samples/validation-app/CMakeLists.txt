@@ -16,3 +16,7 @@ target_link_libraries(ValidationCLI ValidationCore)
 # MinGW should still find WinMain as the entry point or we can switch to main if needed.
 add_executable(ValidationGUI gui.cpp)
 target_link_libraries(ValidationGUI ValidationCore user32 gdi32)
+
+# Unit Tests
+add_executable(ValidationTests tests.cpp)
+target_link_libraries(ValidationTests ValidationCore)
