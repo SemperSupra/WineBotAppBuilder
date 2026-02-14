@@ -9,6 +9,7 @@ mkdir -p "${TMP}/tools" "${TMP}/core" "${TMP}/project"
 cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
 cp "${ROOT_DIR}/core/wbab_core.py" "${TMP}/core/wbab_core.py"
 cp "${ROOT_DIR}/core/discovery.py" "${TMP}/core/discovery.py"
+cp "${ROOT_DIR}/core/scm.py" "${TMP}/core/scm.py"
 chmod +x "${TMP}/tools/wbabd"
 
 cat > "${TMP}/tools/winbuild-build.sh" <<'EOF'
