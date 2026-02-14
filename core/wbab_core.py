@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from core.scm import GitSourceManager, sanitize_git_url
 
 
 @dataclass
@@ -22,6 +23,7 @@ class Plan:
     verb: str
     args: List[str]
     steps: List[Dict[str, Any]]
+    source: Dict[str, str]
 
 
 class WorkspaceLock:
@@ -198,9 +200,21 @@ class AuditLog:
 
 
 class Planner:
-    def plan(self, op_id: str, verb: str, args: List[str]) -> Plan:
+    def plan(
+        self,
+        op_id: str,
+        verb: str,
+        args: List[str],
+        git_url: Optional[str] = None,
+        git_ref: Optional[str] = None,
+    ) -> Plan:
         if verb not in {"build", "package", "sign", "smoke", "doctor", "lint", "test"}:
             raise ValueError(f"unsupported verb: {verb}")
+
+        source = {"type": "local"}
+        if git_url:
+            source = {"type": "git", "url": git_url, "ref": git_ref or ""}
+
         return Plan(
             op_id=op_id,
             verb=verb,
@@ -210,6 +224,7 @@ class Planner:
                 {"name": f"execute_{verb}"},
                 {"name": "record_result"},
             ],
+            source=source,
         )
 
 
@@ -282,36 +297,98 @@ class Executor:
         return True # Default pass for verbs like doctor, lint, test
 
     def run(self, plan: Plan) -> Dict[str, Any]:
-        project_dir = Path(plan.args[0]) if plan.args else Path(".")
-        if not project_dir.is_absolute():
-            project_dir = self.root_dir / project_dir
+        # Handle Git source provisioning if needed
+        git_mgr = None
+        temp_source_path = None
 
-        # Step 0: Robust Cache Validation
-        existing = self.store.get(plan.op_id)
-        if existing and existing.get("status") == "succeeded":
-            if self._validate_outputs(plan):
-                self._audit("operation.cached", plan=plan, status="cached")
+        try:
+            effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
+
+            if plan.source.get("type") == "git":
+                git_mgr = GitSourceManager()
+                url = plan.source["url"]
+                safe_url = sanitize_git_url(url)
+                ref = plan.source.get("ref", "")
+                self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
+                try:
+                    temp_source_path = git_mgr.prepare_source(url, ref)
+                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
+                except Exception as exc:
+                    self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
+                    return {
+                        "status": "failed",
+                        "op_id": plan.op_id,
+                        "verb": plan.verb,
+                        "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
+                    }
+
+                # Re-root the project dir into the temp checkout
+                if not plan.args or plan.args[0] == ".":
+                    effective_project_dir = temp_source_path
+                else:
+                    # Strip any leading / from the arg to append safely
+                    # Note: We do NOT use lstrip("./") because it removes leading dots from ".config"
+                    rel_path = plan.args[0].lstrip("/")
+                    effective_project_dir = temp_source_path / rel_path
+
+            if not effective_project_dir.is_absolute():
+                effective_project_dir = self.root_dir / effective_project_dir
+
+            # Step 0: Robust Cache Validation
+            existing = self.store.get(plan.op_id)
+            if existing and existing.get("status") == "succeeded":
+                # For git sources, we disable cache unless we implement artifact persistence
+                if plan.source.get("type") != "git":
+                    if self._validate_outputs(plan):
+                        self._audit("operation.cached", plan=plan, status="cached")
+                        return {
+                            "status": "cached",
+                            "op_id": plan.op_id,
+                            "verb": plan.verb,
+                            "result": existing.get("result", {}),
+                        }
+                    else:
+                        self._audit("operation.cache_invalidated", plan=plan, status="running",
+                                details={"reason": "expected outputs missing from disk"})
+
+            # Step 0.5: Workspace Locking
+            try:
+                with WorkspaceLock(effective_project_dir):
+                    # Create a modified plan copy with the resolved absolute path
+                    # args[0] becomes the absolute path
+                    new_args = [str(effective_project_dir)]
+                    if len(plan.args) > 1:
+                        new_args.extend(plan.args[1:])
+                    elif not plan.args:
+                        # If originally no args, we provided the path as arg[0]
+                        pass
+
+                    runtime_plan = Plan(
+                        op_id=plan.op_id,
+                        verb=plan.verb,
+                        args=new_args,
+                        steps=plan.steps,
+                        source=plan.source
+                    )
+
+                    result = self._run_operation(runtime_plan, existing)
+
+                    if plan.source.get("type") == "git" and result["status"] == "succeeded":
+                        self._audit("source.artifacts", plan=plan, status="available",
+                                   details={"location": str(effective_project_dir)})
+
+                    return result
+
+            except RuntimeError as exc:
                 return {
-                    "status": "cached",
+                    "status": "failed",
                     "op_id": plan.op_id,
                     "verb": plan.verb,
-                    "result": existing.get("result", {}),
+                    "result": {"error": str(exc), "step": "acquire_workspace_lock"}
                 }
-            else:
-                self._audit("operation.cache_invalidated", plan=plan, status="running", 
-                           details={"reason": "expected outputs missing from disk"})
-
-        # Step 0.5: Workspace Locking
-        try:
-            with WorkspaceLock(project_dir):
-                return self._run_operation(plan, existing)
-        except RuntimeError as exc:
-            return {
-                "status": "failed",
-                "op_id": plan.op_id,
-                "verb": plan.verb,
-                "result": {"error": str(exc), "step": "acquire_workspace_lock"}
-            }
+        finally:
+            if git_mgr and temp_source_path:
+                git_mgr.cleanup(temp_source_path)
 
     def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         started = self._now()
@@ -337,6 +414,7 @@ class Executor:
             op["verb"] = plan.verb
             op["args"] = plan.args
             op["steps"] = plan.steps
+            op["source"] = plan.source
             op["retry_count"] = int(op.get("retry_count", 0)) + 1
         else:
             op = {
@@ -347,6 +425,7 @@ class Executor:
                 "started_at": started,
                 "finished_at": None,
                 "steps": plan.steps,
+                "source": plan.source,
                 "retry_count": 0,
             }
         op["status"] = "running"
@@ -532,15 +611,15 @@ class Executor:
 
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
         if verb == "lint":
-            return [str(self._tool_path("tools/winbuild-lint.sh")), *(args or ["."])]
+            return [str(self._tool_path("tools/winbuild-lint.sh")), *args]
         if verb == "test":
-            return [str(self._tool_path("tools/winbuild-test.sh")), *(args or ["."])]
+            return [str(self._tool_path("tools/winbuild-test.sh")), *args]
         if verb == "build":
-            return [str(self._tool_path("tools/winbuild-build.sh")), *(args or ["."])]
+            return [str(self._tool_path("tools/winbuild-build.sh")), *args]
         if verb == "package":
-            return [str(self._tool_path("tools/package-nsis.sh")), *(args or ["."])]
+            return [str(self._tool_path("tools/package-nsis.sh")), *args]
         if verb == "sign":
-            return [str(self._tool_path("tools/sign-dev.sh")), *(args or ["."])]
+            return [str(self._tool_path("tools/sign-dev.sh")), *args]
         if verb == "smoke":
             if not args:
                 raise ValueError("smoke requires installer path argument")
