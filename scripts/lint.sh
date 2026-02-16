@@ -34,9 +34,10 @@ elif [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
 fi
 
 echo "Running containerized lint..."
+# Use relative paths for mounting to be more robust across different CI/local setups
 docker run --rm \
   -v "${MOUNT_DIR}:/workspace" \
   -v "/var/run/docker.sock:/var/run/docker.sock" \
-  -w /workspace/workspace \
+  -w /workspace \
   "${IMAGE_TO_RUN}" \
-  /workspace/workspace/scripts/lint-container.sh
+  /usr/local/bin/wbab-lint-internal
