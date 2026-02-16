@@ -290,6 +290,71 @@ class Executor:
                     count += 1
         return count
 
+    def cleanup_sandbox(self, max_age_secs: int = 86400) -> int:
+        """
+        Prunes directories in agent-sandbox/ that are older than max_age_secs
+        and not associated with a currently 'running' operation.
+        """
+        count = 0
+        project_root = _get_project_root(self.root_dir)
+        sandbox_dir = project_root / "agent-sandbox"
+        if not sandbox_dir.exists():
+            return 0
+
+        # Get active running directories to avoid pruning them
+        active_dirs = set()
+        with open(self.store.path, "r") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_SH)
+                content = f.read()
+                data = json.loads(content) if content else {"operations": {}}
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+        
+        for op in data.get("operations", {}).values():
+            if op.get("status") == "running":
+                p = Path(op.get("args", ["."])[0])
+                if p.is_absolute() and str(p).startswith(str(sandbox_dir)):
+                    active_dirs.add(str(p))
+
+        now = time.time()
+        for item in sandbox_dir.iterdir():
+            if not item.is_dir():
+                continue
+            if str(item) in active_dirs:
+                continue
+            
+            # Use mtime to determine age
+            if (now - item.stat().st_mtime) > max_age_secs:
+                # Double check for lock file existence/liveness
+                lock_file = item / ".wbab.lock"
+                if lock_file.exists():
+                    try:
+                        fd = os.open(lock_file, os.O_RDWR)
+                        try:
+                            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            # Lock is not held, safe to delete
+                            fcntl.flock(fd, fcntl.LOCK_UN)
+                        except BlockingIOError:
+                            # Lock IS held, do not delete
+                            os.close(fd)
+                            continue
+                        finally:
+                            os.close(fd)
+                    except OSError:
+                        pass
+                
+                # Recursive delete
+                try:
+                    subprocess.run(["rm", "-rf", str(item)], check=True)
+                    count += 1
+                except subprocess.CalledProcessError:
+                    pass
+        
+        if count > 0 and self.audit:
+            self.audit.emit("system.cleanup", status="ok", details={"pruned_count": count})
+        return count
+
     def _tool_path(self, rel: str) -> Path:
         return self.root_dir / rel
 

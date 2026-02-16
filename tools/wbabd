@@ -666,6 +666,7 @@ def main() -> int:
         recovered = executor.recover_zombies()
         if recovered > 0:
             audit.emit("system.recovery", status="ok", details={"recovered_count": recovered})
+        executor.cleanup_sandbox()
 
     audit.emit("command.received", details={"argv": sys.argv[1:]})
 
