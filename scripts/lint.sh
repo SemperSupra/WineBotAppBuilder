@@ -16,25 +16,22 @@ MOUNT_DIR="${PROJECT_ROOT}"
 
 IMAGE_TO_RUN="${LINTER_IMAGE}:${LINTER_TAG}"
 
-if [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
-  echo "Building linter image locally..."
-  docker build -t "${LINTER_IMAGE}:local" -f "${LINTER_DOCKERFILE}" "${PROJECT_ROOT}"
-  IMAGE_TO_RUN="${LINTER_IMAGE}:local"
-else
-  # Check if image exists locally or try to pull
-  if ! docker image inspect "${IMAGE_TO_RUN}" >/dev/null 2>&1; then
-    echo "Pulling linter image ${IMAGE_TO_RUN}..."
-    docker pull "${IMAGE_TO_RUN}" || {
-      echo "WARN: Failed to pull ${IMAGE_TO_RUN}. Falling back to local build if allowed."
-      if [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
-        docker build -t "${LINTER_IMAGE}:local" -f "${LINTER_DOCKERFILE}" "${PROJECT_ROOT}"
-        IMAGE_TO_RUN="${LINTER_IMAGE}:local"
-      else
-        echo "ERROR: Image not found and local build not enabled." >&2
-        exit 1
-      fi
-    }
+# Implementation of Pull-First Policy
+if ! docker image inspect "${IMAGE_TO_RUN}" >/dev/null 2>&1; then
+  echo "Linter image ${IMAGE_TO_RUN} not found locally. Attempting to pull..."
+  if ! docker pull "${IMAGE_TO_RUN}"; then
+    if [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
+      echo "Pull failed. Building linter image locally..."
+      docker build -t "${IMAGE_TO_RUN}" -f "${LINTER_DOCKERFILE}" "${ROOT_DIR}"
+    else
+      echo "ERROR: Linter image not found and WBAB_ALLOW_LOCAL_BUILD is disabled." >&2
+      exit 1
+    fi
   fi
+elif [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
+  # Optional: Rebuild if the Dockerfile is newer than the image (advanced)
+  # For now, we just respect the existing image to save time.
+  echo "Using existing linter image: ${IMAGE_TO_RUN}"
 fi
 
 echo "Running containerized lint..."
