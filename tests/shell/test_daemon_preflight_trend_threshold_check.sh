@@ -7,8 +7,7 @@ trap 'rm -rf "${TMP}"' EXIT
 
 mkdir -p "${TMP}/tools" "${TMP}/core" "${TMP}/scripts/security"
 cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
-cp "${ROOT_DIR}/core/wbab_core.py" "${TMP}/core/wbab_core.py"
-cp "${ROOT_DIR}/core/discovery.py" "${TMP}/core/discovery.py"
+cp -r "${ROOT_DIR}/core/"* "${TMP}/core/"
 cp "${ROOT_DIR}/scripts/security/daemon-preflight.sh" "${TMP}/scripts/security/daemon-preflight.sh"
 cp "${ROOT_DIR}/scripts/security/preflight-trend-threshold-check.sh" "${TMP}/scripts/security/preflight-trend-threshold-check.sh"
 chmod +x "${TMP}/tools/wbabd" "${TMP}/scripts/security/daemon-preflight.sh" "${TMP}/scripts/security/preflight-trend-threshold-check.sh"

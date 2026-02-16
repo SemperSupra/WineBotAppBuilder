@@ -443,12 +443,21 @@ async def _handle_http(
                 op_id = str(payload.get("op_id", ""))
                 verb = str(payload.get("verb", ""))
                 args = payload.get("args", [])
+                git_url = payload.get("git_url")
+                git_ref = payload.get("git_ref")
+
                 op_name = "plan" if parsed.path == "/plan" else "run"
                 allowed, reason = _authorize_operation(authz_policy, principal, op_name, verb)
                 if allowed:
-                    plan = planner.plan(op_id, verb, [str(a) for a in args])
+                    plan = planner.plan(op_id, verb, [str(a) for a in args], git_url=git_url, git_ref=git_ref)
                     if op_name == "plan":
-                        resp_body = {"op_id": plan.op_id, "verb": plan.verb, "args": plan.args, "steps": plan.steps}
+                        resp_body = {
+                            "op_id": plan.op_id,
+                            "verb": plan.verb,
+                            "args": plan.args,
+                            "steps": plan.steps,
+                            "source": plan.source
+                        }
                     else:
                         resp_body = await asyncio.to_thread(executor.run, plan)
                         if resp_body["status"] not in {"succeeded", "cached"}: resp_code = 500
@@ -613,14 +622,23 @@ def _handle_api_request(store: OperationStore, planner: Planner, executor: Execu
         op_id = str(req.get("op_id", "")).strip()
         verb = str(req.get("verb", "")).strip()
         args = req.get("args", [])
+        git_url = req.get("git_url")
+        git_ref = req.get("git_ref")
+
         if not op_id or not verb or not isinstance(args, list):
             return 400, {"error": "op_id, verb, args[] required"}
         try:
-            plan = planner.plan(op_id, verb, [str(a) for a in args])
+            plan = planner.plan(op_id, verb, [str(a) for a in args], git_url=git_url, git_ref=git_ref)
         except ValueError as exc:
             return 400, {"error": str(exc)}
         if op == "plan":
-            return 200, {"op_id": plan.op_id, "verb": plan.verb, "args": plan.args, "steps": plan.steps}
+            return 200, {
+                "op_id": plan.op_id,
+                "verb": plan.verb,
+                "args": plan.args,
+                "steps": plan.steps,
+                "source": plan.source
+            }
         result = executor.run(plan)
         return (200 if result["status"] in {"succeeded", "cached"} else 500), result
     return 400, {"error": f"unknown op: {op}"}
@@ -666,12 +684,24 @@ def main() -> int:
         return 0
 
     if cmd in {"plan", "run"}:
-        if len(sys.argv) < 4:
-            print("wbabd: missing arguments", file=sys.stderr)
-            usage()
-            return 2
-        op_id = sys.argv[2]
-        verb = sys.argv[3]
+        parser = argparse.ArgumentParser(prog=f"wbabd {cmd}", add_help=False)
+        parser.add_argument("--git-url")
+        parser.add_argument("--git-ref")
+        parser.add_argument("op_id")
+        parser.add_argument("verb")
+        parser.add_argument("args", nargs="*")
+
+        try:
+            ns, unknown = parser.parse_known_args(sys.argv[2:])
+        except SystemExit:
+             return 2
+
+        op_id = ns.op_id
+        verb = ns.verb
+        cmd_args = ns.args
+        git_url = ns.git_url
+        git_ref = ns.git_ref
+
         principal = _principal_from_env()
         allowed, reason = _authorize_operation(authz_policy, principal, cmd, verb)
         if not allowed:
@@ -685,9 +715,9 @@ def main() -> int:
             print(json.dumps({"error": "forbidden", "principal": principal, "reason": reason}))
             return 1
         audit.emit("authz.allowed", op_id=op_id, verb=verb, status="ok", details={"principal": principal, "op": cmd})
-        args = sys.argv[4:]
+
         try:
-            plan = planner.plan(op_id, verb, args)
+            plan = planner.plan(op_id, verb, cmd_args, git_url=git_url, git_ref=git_ref)
         except ValueError as exc:
             print(f"wbabd: {exc}", file=sys.stderr)
             return 2
@@ -700,6 +730,7 @@ def main() -> int:
                         "verb": plan.verb,
                         "args": plan.args,
                         "steps": plan.steps,
+                        "source": plan.source,
                     },
                     indent=2,
                 )
