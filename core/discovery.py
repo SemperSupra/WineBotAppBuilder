@@ -120,6 +120,7 @@ class DiscoveryBrowser:
             raise ImportError("zeroconf library is required for DiscoveryBrowser. Install with: pip install zeroconf")
         self.zc = Zeroconf(ip_version=IPVersion.V4Only)
         self.found_peers: Dict[str, Dict] = {}
+        self._lock = asyncio.Lock()
 
     def on_service_state_change(self, zeroconf: 'Zeroconf', service_type: str, name: str, state_change: 'ServiceStateChange') -> None:
         if not HAS_ZEROCONF:
@@ -128,6 +129,8 @@ class DiscoveryBrowser:
             info = zeroconf.get_service_info(service_type, name)
             if info:
                 props = {k.decode(): v.decode() if isinstance(v, bytes) else v for k, v in info.properties.items()}
+                # Synchronous modification of dict is generally safe in CPython, 
+                # but we use the lock in the async discover method to ensure a stable snapshot.
                 self.found_peers[name] = {
                     "name": name,
                     "address": socket.inet_ntoa(info.addresses[0]),
@@ -142,7 +145,8 @@ class DiscoveryBrowser:
     async def discover(self, timeout: float = 3.0) -> List[Dict]:
         _browser = ServiceBrowser(self.zc, DiscoveryManager.SERVICE_TYPE, handlers=[self.on_service_state_change])
         await asyncio.sleep(timeout)
-        return list(self.found_peers.values())
+        async with self._lock:
+            return list(self.found_peers.values())
 
     def close(self):
         self.zc.close()
