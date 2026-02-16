@@ -450,7 +450,7 @@ async def _handle_http(
                     if op_name == "plan":
                         resp_body = {"op_id": plan.op_id, "verb": plan.verb, "args": plan.args, "steps": plan.steps}
                     else:
-                        resp_body = executor.run(plan)
+                        resp_body = await asyncio.to_thread(executor.run, plan)
                         if resp_body["status"] not in {"succeeded", "cached"}: resp_code = 500
                 else:
                     audit.emit("authz.denied", op_id=op_id, verb=verb, status="forbidden", details={"principal": principal, "op": op_name, "reason": reason, "client_ip": client_ip})
