@@ -209,11 +209,14 @@ cmd_init() {
 
   echo "Initializing structure in $(pwd)..."
 
-  # Standard Directory Structure (ORGANIZATION_POLICY.md)
-  mkdir -p src tests tools out dist agent-sandbox/state agent-sandbox/artifacts agent-privileged/signing manual
+  # 4-Tier Directory Structure (ORGANIZATION_POLICY.md)
+  mkdir -p workspace/src workspace/tests workspace/tools workspace/scripts
+  mkdir -p agent-sandbox/state agent-sandbox/artifacts agent-sandbox/out agent-sandbox/dist
+  mkdir -p agent-privileged/signing agent-privileged/daemon-pki
+  mkdir -p manual
 
   # Base wbab.json
-  cat <<EOF > wbab.json
+  cat <<EOF > workspace/wbab.json
 {
   "wbab_version": "0.1",
   "project": {
@@ -222,25 +225,59 @@ cmd_init() {
   },
   "build": {
     "type": "cmake",
-    "output_dir": "out"
+    "output_dir": "../agent-sandbox/out"
   },
   "package": {
     "type": "nsis",
-    "output_dir": "dist"
+    "output_dir": "../agent-sandbox/dist"
   }
 }
 EOF
 
-  # Base .gitignore
+  # Base .gitignore (Project Root)
   cat <<EOF > .gitignore
-out/
-dist/
 agent-sandbox/
 agent-privileged/
 .wbab.lock
 *.tmp
 __pycache__/
+.DS_Store
 EOF
+
+  # CI Boilerplate
+  mkdir -p .github/workflows
+  cat <<'EOF' > .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Linter
+        run: ./workspace/scripts/lint.sh
+EOF
+
+  # Linting Boilerplate
+  cat <<'EOF' > workspace/scripts/lint.sh
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LINTER_IMAGE="ghcr.io/sempersupra/winebotappbuilder-linter:v0.2.1"
+
+docker run --rm \
+  -v "${ROOT_DIR}:/workspace" \
+  -w /workspace \
+  "${LINTER_IMAGE}" \
+  /usr/local/bin/wbab-lint-internal
+EOF
+  chmod +x workspace/scripts/lint.sh
 
   if [[ ! -d ".git" ]]; then
     git init -q
@@ -248,9 +285,11 @@ EOF
   fi
 
   echo "SUCCESS: Project '${project_name}' initialized."
+  echo "Structure created according to ORGANIZATION_POLICY.md."
   echo "Next steps:"
-  echo "  1. Add your Windows source code to 'src/'"
-  echo "  2. Run 'wbab build' to verify the toolchain"
+  echo "  1. Add your source to 'workspace/src/'"
+  echo "  2. Run './workspace/scripts/lint.sh' to verify"
+  echo "  3. Use 'wbab build' from the root"
 }
 
 json_escape() {
