@@ -26,13 +26,16 @@ RUN curl -sSL -o /tmp/ruff.tar.gz https://github.com/astral-sh/ruff/releases/dow
     && chmod +x /usr/local/bin/ruff \
     && rm -rf /tmp/ruff*
 
+# Install Mypy
+RUN pip3 install --no-cache-dir --break-system-packages mypy==1.15.0
+
 # Install Trivy
 RUN curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v0.59.1/trivy_0.59.1_Linux-64bit.deb \
     && dpkg -i /tmp/trivy.deb \
     && rm /tmp/trivy.deb
 
 WORKDIR /workspace
-COPY workspace/scripts/lint-container.sh /usr/local/bin/wbab-lint-internal
+COPY scripts/lint-container.sh /usr/local/bin/wbab-lint-internal
 RUN chmod +x /usr/local/bin/wbab-lint-internal
 
 ENTRYPOINT ["/usr/local/bin/wbab-lint-internal"]
