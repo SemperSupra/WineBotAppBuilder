@@ -9,16 +9,38 @@ git config --global --add safe.directory /workspace/workspace
 # Move to workspace to run git ls-files correctly
 cd /workspace/workspace
 
+# Ensure we can run git even if the workspace is just a directory mount without a .git
+# (Though in CI it should be a real git repo)
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "WARN: Not inside a git work tree. Using find instead of git ls-files."
+  SH_FILES=$(find . -name "*.sh" -not -path "./tools/WineBot/*")
+  DOCKER_FILES=$(find . -name "Dockerfile" -not -path "./tools/WineBot/*")
+else
+  SH_FILES=$(git ls-files '*.sh' | grep -v "^tools/WineBot/")
+  DOCKER_FILES=$(git ls-files '**/Dockerfile' | grep -v "^tools/WineBot/")
+fi
+
 echo "[lint] shellcheck (project-owned scripts)"
-# shellcheck disable=SC2046
-shellcheck -x $(git ls-files '*.sh' | grep -v "^tools/WineBot/")
+# shellcheck disable=SC2086
+if [[ -n "${SH_FILES}" ]]; then
+  shellcheck -x ${SH_FILES}
+else
+  echo "  (no .sh files found)"
+fi
 
 echo "[lint] ruff (project-owned python)"
 ruff check --exclude tools/WineBot .
 
+echo "[lint] mypy (static type checking)"
+mypy --ignore-missing-imports --explicit-package-bases --exclude tools/WineBot .
+
 echo "[lint] hadolint (project-owned dockerfiles)"
-# shellcheck disable=SC2046
-hadolint --ignore DL3008 $(git ls-files '**/Dockerfile' | grep -v "^tools/WineBot/")
+# shellcheck disable=SC2086
+if [[ -n "${DOCKER_FILES}" ]]; then
+  hadolint --ignore DL3008 ${DOCKER_FILES}
+else
+  echo "  (no Dockerfiles found)"
+fi
 
 echo "[lint] trivy (project-owned security fs scan)"
 trivy fs --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs tools/WineBot .
@@ -31,6 +53,7 @@ echo "[lint] executable bits"
 # Ensure key scripts are executable
 must_exec=(tools/compose.sh tools/winbuild-build.sh tools/package-nsis.sh tools/sign-dev.sh tools/winebot-smoke.sh tools/winebot-trust-dev-cert.sh tools/wbab tools/wbabd scripts/lint.sh scripts/bootstrap-submodule.sh scripts/signing/dev-cert.sh)
 for f in "${must_exec[@]}"; do
+  # Check relative to current dir (workspace/workspace)
   if [[ -f "${f}" && ! -x "${f}" ]]; then
     echo "ERROR: ${f} must be executable" >&2
     exit 1

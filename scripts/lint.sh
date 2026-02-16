@@ -29,9 +29,8 @@ if ! docker image inspect "${IMAGE_TO_RUN}" >/dev/null 2>&1; then
     fi
   fi
 elif [[ "${ALLOW_LOCAL_BUILD}" == "1" ]]; then
-  # Optional: Rebuild if the Dockerfile is newer than the image (advanced)
-  # For now, we just respect the existing image to save time.
-  echo "Using existing linter image: ${IMAGE_TO_RUN}"
+  echo "Rebuilding linter image locally..."
+  docker build -t "${IMAGE_TO_RUN}" -f "${LINTER_DOCKERFILE}" "${ROOT_DIR}"
 fi
 
 echo "Running containerized lint..."
