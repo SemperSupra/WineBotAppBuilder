@@ -298,97 +298,88 @@ class Executor:
 
     def run(self, plan: Plan) -> Dict[str, Any]:
         # Handle Git source provisioning if needed
-        git_mgr = None
-        temp_source_path = None
-
-        try:
-            effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
-
-            if plan.source.get("type") == "git":
-                git_mgr = GitSourceManager(self.root_dir)
-                url = plan.source["url"]
-                safe_url = sanitize_git_url(url)
-                ref = plan.source.get("ref", "")
-                self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
-                try:
-                    temp_source_path = git_mgr.prepare_source(url, ref)
-                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
-                except Exception as exc:
-                    self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
-                    return {
-                        "status": "failed",
-                        "op_id": plan.op_id,
-                        "verb": plan.verb,
-                        "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
-                    }
-
-                # Re-root the project dir into the temp checkout
-                if not plan.args or plan.args[0] == ".":
-                    effective_project_dir = temp_source_path
-                else:
-                    # Strip any leading / from the arg to append safely
-                    # Note: We do NOT use lstrip("./") because it removes leading dots from ".config"
-                    rel_path = plan.args[0].lstrip("/")
-                    effective_project_dir = temp_source_path / rel_path
-
-            if not effective_project_dir.is_absolute():
-                effective_project_dir = self.root_dir / effective_project_dir
-
-            # Step 0: Robust Cache Validation
-            existing = self.store.get(plan.op_id)
-            if existing and existing.get("status") == "succeeded":
-                # For git sources, we disable cache unless we implement artifact persistence
-                if plan.source.get("type") != "git":
-                    if self._validate_outputs(plan):
-                        self._audit("operation.cached", plan=plan, status="cached")
-                        return {
-                            "status": "cached",
-                            "op_id": plan.op_id,
-                            "verb": plan.verb,
-                            "result": existing.get("result", {}),
-                        }
-                    else:
-                        self._audit("operation.cache_invalidated", plan=plan, status="running",
-                                details={"reason": "expected outputs missing from disk"})
-
-            # Step 0.5: Workspace Locking
+        if plan.source.get("type") == "git":
+            git_mgr = GitSourceManager(self.root_dir)
+            url = plan.source["url"]
+            safe_url = sanitize_git_url(url)
+            ref = plan.source.get("ref", "")
+            self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
             try:
-                with WorkspaceLock(effective_project_dir):
-                    # Create a modified plan copy with the resolved absolute path
-                    # args[0] becomes the absolute path
-                    new_args = [str(effective_project_dir)]
-                    if len(plan.args) > 1:
-                        new_args.extend(plan.args[1:])
-                    elif not plan.args:
-                        # If originally no args, we provided the path as arg[0]
-                        pass
-
-                    runtime_plan = Plan(
-                        op_id=plan.op_id,
-                        verb=plan.verb,
-                        args=new_args,
-                        steps=plan.steps,
-                        source=plan.source
-                    )
-
-                    result = self._run_operation(runtime_plan, existing)
-
-                    if plan.source.get("type") == "git" and result["status"] == "succeeded":
-                        self._audit("source.artifacts", plan=plan, status="available",
-                                   details={"location": str(effective_project_dir)})
-
-                    return result
-
-            except RuntimeError as exc:
+                with git_mgr.prepare_source(url, ref) as temp_source_path:
+                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
+                    
+                    # Re-root the project dir into the temp checkout
+                    if not plan.args or plan.args[0] == ".":
+                        effective_project_dir = temp_source_path
+                    else:
+                        rel_path = plan.args[0].lstrip("/")
+                        effective_project_dir = temp_source_path / rel_path
+                    
+                    return self._execute_in_workspace(plan, effective_project_dir)
+            except Exception as exc:
+                self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
                 return {
                     "status": "failed",
                     "op_id": plan.op_id,
                     "verb": plan.verb,
-                    "result": {"error": str(exc), "step": "acquire_workspace_lock"}
+                    "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
                 }
-        finally:
-            if git_mgr and temp_source_path:
-                git_mgr.cleanup(temp_source_path)
+        else:
+            effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
+            return self._execute_in_workspace(plan, effective_project_dir)
+
+    def _execute_in_workspace(self, plan: Plan, effective_project_dir: Path) -> Dict[str, Any]:
+        if not effective_project_dir.is_absolute():
+            effective_project_dir = self.root_dir / effective_project_dir
+
+        # Step 0: Robust Cache Validation
+        existing = self.store.get(plan.op_id)
+        if existing and existing.get("status") == "succeeded":
+            # For git sources, we disable cache unless we implement artifact persistence
+            if plan.source.get("type") != "git":
+                if self._validate_outputs(plan):
+                    self._audit("operation.cached", plan=plan, status="cached")
+                    return {
+                        "status": "cached",
+                        "op_id": plan.op_id,
+                        "verb": plan.verb,
+                        "result": existing.get("result", {}),
+                    }
+                else:
+                    self._audit("operation.cache_invalidated", plan=plan, status="running",
+                            details={"reason": "expected outputs missing from disk"})
+
+        # Step 0.5: Workspace Locking
+        try:
+            with WorkspaceLock(effective_project_dir):
+                # Create a modified plan copy with the resolved absolute path
+                new_args = [str(effective_project_dir)]
+                if len(plan.args) > 1:
+                    new_args.extend(plan.args[1:])
+
+                runtime_plan = Plan(
+                    op_id=plan.op_id,
+                    verb=plan.verb,
+                    args=new_args,
+                    steps=plan.steps,
+                    source=plan.source
+                )
+
+                result = self._run_operation(runtime_plan, existing)
+
+                if plan.source.get("type") == "git" and result["status"] == "succeeded":
+                    self._audit("source.artifacts", plan=plan, status="available",
+                               details={"location": str(effective_project_dir)})
+
+                return result
+
+        except RuntimeError as exc:
+            return {
+                "status": "failed",
+                "op_id": plan.op_id,
+                "verb": plan.verb,
+                "result": {"error": str(exc), "step": "acquire_workspace_lock"}
+            }
 
     def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         started = self._now()
