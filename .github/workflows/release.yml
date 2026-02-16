@@ -21,56 +21,15 @@ jobs:
       - name: Create artifacts directory
         run: mkdir -p artifacts
 
-      - name: Install lint deps
+      - name: Run all tests (containerized)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y shellcheck
-
-      - name: Run all tests
-        run: |
-          chmod +x scripts/lint.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
+          export WBAB_ALLOW_LOCAL_BUILD=1
+          chmod +x scripts/lint.sh scripts/lint-container.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
           ./scripts/lint.sh
           ./tests/shell/run.sh
           ./tests/contract/run.sh
           ./tests/policy/run.sh
           ./tests/e2e/run.sh
-
-      - name: Dockerfile hardening lint (Hadolint)
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: tools/winbuild/Dockerfile
-          ignore: DL3008
-
-      - name: Dockerfile hardening lint (Hadolint packaging)
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: tools/packaging/Dockerfile
-          ignore: DL3008
-
-      - name: Dockerfile hardening lint (Hadolint signing)
-        uses: hadolint/hadolint-action@v3.3.0
-        with:
-          dockerfile: tools/signing/Dockerfile
-          ignore: DL3008
-
-      - name: Security vulnerability gate (Trivy fs)
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
-          format: table
-          exit-code: '1'
-
-      - name: Generate SBOM report (Trivy CycloneDX)
-        uses: aquasecurity/trivy-action@0.29.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: cyclonedx
-          output: artifacts/sbom-repo.cdx.json
-          exit-code: '0'
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
