@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-PKI_DIR="${WBAB_SIGNING_PKI_DIR:-${ROOT_DIR}/.wbab/signing/pki}"
+PKI_DIR="${WBAB_SIGNING_PKI_DIR:-${ROOT_DIR}/../agent-privileged/signing/pki}"
 
 CA_CRT="${PKI_DIR}/ca.crt.pem"
 CA_KEY="${PKI_DIR}/ca.key.pem"

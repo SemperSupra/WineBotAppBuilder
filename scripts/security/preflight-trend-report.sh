@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-COUNTERS_PATH="${WBABD_PREFLIGHT_COUNTERS_PATH:-${ROOT_DIR}/.wbab/preflight-counters.json}"
-AUDIT_PATH="${WBABD_AUDIT_LOG_PATH:-${ROOT_DIR}/.wbab/audit-log.jsonl}"
+COUNTERS_PATH="${WBABD_PREFLIGHT_COUNTERS_PATH:-${ROOT_DIR}/../agent-sandbox/state/preflight-counters.json}"
+AUDIT_PATH="${WBABD_AUDIT_LOG_PATH:-${ROOT_DIR}/../agent-sandbox/state/audit-log.jsonl}"
 WINDOW="${WBABD_PREFLIGHT_AUDIT_WINDOW:-50}"
 FORMAT="text"
 

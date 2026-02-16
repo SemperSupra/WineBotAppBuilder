@@ -35,10 +35,20 @@ Usage:
     )
 
 
+def _get_project_root(root_dir: Path) -> Path:
+    if root_dir.name == "workspace":
+        return root_dir.parent
+    return root_dir
+
+
 def _default_preflight_status_path(root_dir: Path) -> Path:
     p = os.environ.get("WBABD_PREFLIGHT_STATUS_PATH", "").strip()
     if p:
         return Path(p)
+    project_root = _get_project_root(root_dir)
+    new_path = project_root / "agent-sandbox" / "state" / "preflight-status.json"
+    if (project_root / "agent-sandbox").exists():
+        return new_path
     return root_dir / ".wbab" / "preflight-status.json"
 
 
@@ -46,6 +56,10 @@ def _default_preflight_counters_path(root_dir: Path) -> Path:
     p = os.environ.get("WBABD_PREFLIGHT_COUNTERS_PATH", "").strip()
     if p:
         return Path(p)
+    project_root = _get_project_root(root_dir)
+    new_path = project_root / "agent-sandbox" / "state" / "preflight-counters.json"
+    if (project_root / "agent-sandbox").exists():
+        return new_path
     return root_dir / ".wbab" / "preflight-counters.json"
 
 
