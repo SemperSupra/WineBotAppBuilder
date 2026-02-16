@@ -4,6 +4,10 @@ on:
   push:
     tags:
       - 'v*'
+    paths-ignore:
+      - 'docs/**'
+      - 'manual/**'
+      - '**.md'
   workflow_dispatch:
 
 permissions:
@@ -77,6 +81,8 @@ jobs:
               --label "org.opencontainers.image.revision=${SHA}" \
               --label "org.opencontainers.image.version=${TAG}" \
               --label "org.opencontainers.image.title=${image_name}" \
+              --cache-from "type=gha,scope=${image_name}" \
+              --cache-to "type=gha,mode=max,scope=${image_name}" \
               --provenance=true \
               --sbom=true \
               --metadata-file "${metadata_file}" \
