@@ -28,9 +28,11 @@ Required verbs:
   doctor
   discover
   plan
+  api
+  run
 
 Notes:
-- `lint`, `test`, `doctor`, `discover`, `build`, `package`, `sign`, `smoke`, and `plan` are implemented in the bring-up scaffold.
+- `lint`, `test`, `doctor`, `discover`, `build`, `package`, `sign`, `smoke`, `plan`, and `api` are implemented.
 EOF
 }
 
@@ -39,12 +41,67 @@ die() {
   exit 2
 }
 
+ensure_daemon_url() {
+  if [[ -n "${WBABD_URL:-}" ]]; then
+    return 0
+  fi
+
+  # Fallback to mDNS discovery
+  local discovery_json
+  discovery_json=$(python3 -c '
+import asyncio
+import json
+import sys
+from pathlib import Path
+ROOT_DIR = Path("'"${ROOT_DIR}"'")
+sys.path.insert(0, str(ROOT_DIR))
+try:
+    from core.discovery import DiscoveryBrowser
+    async def run():
+        browser = DiscoveryBrowser()
+        peers = await browser.discover(timeout=1.5)
+        print(json.dumps(peers))
+        browser.close()
+    asyncio.run(run())
+except Exception:
+    pass
+' 2>/dev/null)
+
+  if [[ -n "${discovery_json}" && "${discovery_json}" != "[]" ]]; then
+    local count
+    count=$(echo "${discovery_json}" | jq '. | length')
+    if [[ "${count}" -eq 1 ]]; then
+      local address
+      local port
+      address=$(echo "${discovery_json}" | jq -r '.[0].address')
+      port=$(echo "${discovery_json}" | jq -r '.[0].port')
+      export WBABD_URL="http://${address}:${port}"
+      echo "wbab: auto-discovered daemon at ${WBABD_URL}" >&2
+      return 0
+    elif [[ "${count}" -gt 1 ]]; then
+      echo "wbab: multiple daemons found. Please specify WBABD_URL." >&2
+      echo "wbab: use 'wbab discover' to list available nodes." >&2
+    fi
+  fi
+
+  # Default fallback if discovery fails or finds nothing
+  export WBABD_URL="http://127.0.0.1:8787"
+}
+
 require_arg() {
   local value="${1:-}"
   local what="${2:-argument}"
   if [[ -z "${value}" ]]; then
     die "missing ${what}"
   fi
+}
+
+cmd_api() {
+  ensure_daemon_url
+  local payload="${1:-}"
+  require_arg "${payload}" "JSON payload"
+  
+  curl -s -X POST -H "Content-Type: application/json" -d "${payload}" "${WBABD_URL}/run"
 }
 
 cmd_discover() {
@@ -147,10 +204,11 @@ cmd_plan() {
   local winebot_service="${WBAB_WINEBOT_SERVICE:-winebot}"
   local wbab_tag="${WBAB_TAG:-}"
 
+  local json_out
   case "${target}" in
     lint)
       local project_dir="${1:-.}"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "lint",
@@ -169,10 +227,11 @@ cmd_plan() {
   ]
 }
 EOF
+)
       ;;
     test)
       local project_dir="${1:-.}"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "test",
@@ -191,11 +250,12 @@ EOF
   ]
 }
 EOF
+)
       ;;
     smoke)
       local installer="${1:-}"
       require_arg "${installer}" "installer path for smoke plan"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "smoke",
@@ -220,10 +280,11 @@ EOF
   ]
 }
 EOF
+)
       ;;
     build)
       local project_dir="${1:-.}"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "build",
@@ -243,10 +304,11 @@ EOF
   ]
 }
 EOF
+)
       ;;
     package)
       local project_dir="${1:-.}"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "package",
@@ -266,10 +328,11 @@ EOF
   ]
 }
 EOF
+)
       ;;
     sign)
       local project_dir="${1:-.}"
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "sign",
@@ -291,9 +354,10 @@ EOF
   ]
 }
 EOF
+)
       ;;
     doctor)
-      cat <<EOF
+      json_out=$(cat <<EOF
 {
   "version": "0.1",
   "command": "doctor",
@@ -304,11 +368,52 @@ EOF
   ]
 }
 EOF
+)
       ;;
     *)
       die "unknown target for plan: ${target}"
       ;;
   esac
+
+  ensure_daemon_url
+  echo "${json_out}"
+}
+
+cmd_run() {
+  local target="${1:-}"
+  require_arg "${target}" "target verb for run"
+  shift || true
+
+  local op_id
+  op_id="cli-$(date +%Y%m%dT%H%M%S)-$(python3 -c 'import uuid; print(str(uuid.uuid4())[:8])')"
+
+  echo "wbab: planning ${target} (op_id=${op_id})..." >&2
+  local plan
+  plan=$(cmd_plan "$target" "$@")
+  
+  # Inject op_id into plan and map command to verb for daemon compatibility
+  plan=$(echo "${plan}" | jq --arg id "${op_id}" '.op_id = $id | .verb = .command')
+
+  ensure_daemon_url
+  echo "wbab: submitting to daemon at ${WBABD_URL}..." >&2
+  
+  local resp
+  resp=$(curl -s -X POST -H "Content-Type: application/json" -d "${plan}" "${WBABD_URL}/run")
+  
+  local status
+  status=$(echo "${resp}" | jq -r '.status // "error"')
+
+  if [[ "${status}" == "error" ]]; then
+    echo "wbab: daemon error: $(echo "${resp}" | jq -r '.error // "unknown error"')" >&2
+    exit 1
+  fi
+
+  echo "wbab: operation ${status}" >&2
+  echo "${resp}" | jq .
+  
+  if [[ "${status}" == "failed" ]]; then
+    exit 1
+  fi
 }
 
 cmd_smoke() {
@@ -416,6 +521,12 @@ case "${verb}" in
     ;;
   plan)
     cmd_plan "$@"
+    ;;
+  api)
+    cmd_api "$@"
+    ;;
+  run)
+    cmd_run "$@"
     ;;
   *)
     die "unknown verb: ${verb}"
