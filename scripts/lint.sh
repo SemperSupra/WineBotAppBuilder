@@ -36,6 +36,7 @@ echo "Running containerized lint..."
 # Use relative paths for mounting to be more robust across different CI/local setups
 docker run --rm \
   -v "${MOUNT_DIR}:/workspace" \
+  -v "${ROOT_DIR}/../agent-sandbox/state/trivy-cache:/root/.cache/trivy" \
   -v "/var/run/docker.sock:/var/run/docker.sock" \
   -w /workspace \
   "${IMAGE_TO_RUN}" \

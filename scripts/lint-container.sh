@@ -32,8 +32,11 @@ fi
 echo "[lint] ruff (project-owned python)"
 ruff check --exclude tools/WineBot .
 
+echo "[lint] ruff format (coding style)"
+ruff format --check --exclude tools/WineBot .
+
 echo "[lint] mypy (static type checking)"
-mypy --ignore-missing-imports --explicit-package-bases --exclude tools/WineBot .
+mypy --ignore-missing-imports --explicit-package-bases --check-untyped-defs --warn-unused-ignores --exclude tools/WineBot .
 
 echo "[lint] hadolint (project-owned dockerfiles)"
 # shellcheck disable=SC2086
