@@ -9,6 +9,7 @@ dockerfiles=(
   "${ROOT_DIR}/tools/winbuild/Dockerfile"
   "${ROOT_DIR}/tools/packaging/Dockerfile"
   "${ROOT_DIR}/tools/signing/Dockerfile"
+  "${ROOT_DIR}/tools/linter/Dockerfile"
 )
 
 for dockerfile in "${dockerfiles[@]}"; do
