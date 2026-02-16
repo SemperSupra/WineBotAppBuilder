@@ -660,6 +660,13 @@ def main() -> int:
     planner = Planner()
     audit = AuditLog(default_audit_path(ROOT_DIR))
     executor = Executor(ROOT_DIR, store, audit=audit)
+
+    # State Machine Correctness: Recover zombies on startup for long-running modes
+    if cmd in {"serve", "api"}:
+        recovered = executor.recover_zombies()
+        if recovered > 0:
+            audit.emit("system.recovery", status="ok", details={"recovered_count": recovered})
+
     audit.emit("command.received", details={"argv": sys.argv[1:]})
 
     if cmd == "status":

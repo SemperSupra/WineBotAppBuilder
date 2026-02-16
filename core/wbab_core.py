@@ -38,6 +38,9 @@ class WorkspaceLock:
         self._fd = os.open(self.lock_file, os.O_RDWR | os.O_CREAT)
         try:
             fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Write PID to lock file for recovery/cancellation
+            os.ftruncate(self._fd, 0)
+            os.write(self._fd, str(os.getpid()).encode())
         except BlockingIOError:
             os.close(self._fd)
             raise RuntimeError(f"Workspace is locked by another WBAB process: {self.lock_file}")
@@ -233,6 +236,59 @@ class Executor:
         self.root_dir = root_dir
         self.store = store
         self.audit = audit
+
+    def recover_zombies(self) -> int:
+        """
+        Scans the operation store for 'running' operations. If the workspace lock
+        is not held by any process, transitions the operation to 'failed'.
+        Returns the number of recovered operations.
+        """
+        count = 0
+        with open(self.store.path, "r") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_SH)
+                content = f.read()
+                data = json.loads(content) if content else {"operations": {}}
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+
+        for op_id, op in data.get("operations", {}).items():
+            if op.get("status") == "running":
+                project_dir = Path(op.get("args", ["."])[0])
+                if not project_dir.is_absolute():
+                    project_dir = self.root_dir / project_dir
+                
+                lock_file = project_dir / ".wbab.lock"
+                is_stale = False
+                if not lock_file.exists():
+                    is_stale = True
+                else:
+                    # Try to acquire lock non-blockingly to see if it is held
+                    try:
+                        fd = os.open(lock_file, os.O_RDWR)
+                        try:
+                            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            # If we got here, we got the lock, so the previous process is dead
+                            is_stale = True
+                            fcntl.flock(fd, fcntl.LOCK_UN)
+                        except BlockingIOError:
+                            # Lock is held by a live process
+                            pass
+                        finally:
+                            os.close(fd)
+                    except OSError:
+                        # Cannot open file, assume stale or inaccessible
+                        is_stale = True
+
+                if is_stale:
+                    op["status"] = "failed"
+                    op["finished_at"] = int(time.time())
+                    op["result"] = {"error": "System aborted (process crash detected)", "step": "system_recovery"}
+                    self.store.upsert(op_id, op)
+                    if self.audit:
+                        self.audit.emit("operation.recovered", op_id=op_id, verb=op.get("verb", ""), status="failed", details={"reason": "stale_lock"})
+                    count += 1
+        return count
 
     def _tool_path(self, rel: str) -> Path:
         return self.root_dir / rel
