@@ -458,8 +458,21 @@ class Executor:
             return self._execute_in_workspace(plan, effective_project_dir)
 
     def _execute_in_workspace(self, plan: Plan, effective_project_dir: Path) -> Dict[str, Any]:
-        if not effective_project_dir.is_absolute():
-            effective_project_dir = self.root_dir / effective_project_dir
+        # Path Jailing: Ensure the project directory is within the project root
+        project_root = _get_project_root(self.root_dir).resolve()
+        try:
+            resolved_project_dir = effective_project_dir.resolve()
+            if not str(resolved_project_dir).startswith(str(project_root)):
+                raise ValueError(f"SecurityError: Project directory '{resolved_project_dir}' is outside of project root '{project_root}'")
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "op_id": plan.op_id,
+                "verb": plan.verb,
+                "result": {"error": f"Path validation failed: {exc}", "step": "path_jailing"}
+            }
+
+        effective_project_dir = resolved_project_dir
 
         # Step 0: Robust Cache Validation
         existing = self.store.get(plan.op_id)
@@ -748,22 +761,52 @@ class Executor:
                     pass
 
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
-        if verb == "lint":
-            return [str(self._tool_path("tools/winbuild-lint.sh")), *args]
-        if verb == "test":
-            return [str(self._tool_path("tools/winbuild-test.sh")), *args]
-        if verb == "build":
-            return [str(self._tool_path("tools/winbuild-build.sh")), *args]
-        if verb == "package":
-            return [str(self._tool_path("tools/package-nsis.sh")), *args]
-        if verb == "sign":
-            return [str(self._tool_path("tools/sign-dev.sh")), *args]
+        # Security: Remote RCE Guard - Never run arbitrary host scripts.
+        # Construct standard Docker run commands directly.
+        
+        tag = os.environ.get("WBAB_TAG", "v0.2.4")
+        project_dir = Path(args[0]) if args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        # Determine the image based on the verb
+        image = ""
+        entrypoint_cmd = ""
+        
+        if verb in {"lint", "test", "build"}:
+            image = f"ghcr.io/sempersupra/winebotappbuilder-winbuild:{tag}"
+            entrypoint_cmd = f"wbab-{verb}"
+        elif verb == "package":
+            image = f"ghcr.io/sempersupra/winebotappbuilder-packager:{tag}"
+            entrypoint_cmd = "wbab-package"
+        elif verb == "sign":
+            image = f"ghcr.io/sempersupra/winebotappbuilder-signer:{tag}"
+            entrypoint_cmd = "wbab-sign" # Note: sign-real logic would need to be in the container
+        elif verb == "doctor":
+            # Doctor is a special case that checks host environment, 
+            # but for remote daemon, we check daemon host.
+            return [str(self._tool_path("tools/wbab")), "doctor"]
+        
+        if image:
+            # Construct direct docker run command
+            docker_cmd = [
+                "docker", "run", "--rm",
+                "-v", f"{project_dir}:/workspace",
+                "-w", "/workspace",
+                image,
+                entrypoint_cmd
+            ]
+            # Add any extra args if not the project dir
+            if len(args) > 1:
+                docker_cmd.extend(args[1:])
+            return docker_cmd
+
         if verb == "smoke":
             if not args:
                 raise ValueError("smoke requires installer path argument")
+            # Smoke still requires host-side compose orchestration for now
             return [str(self._tool_path("tools/winebot-smoke.sh")), *args]
-        if verb == "doctor":
-            return [str(self._tool_path("tools/wbab")), "doctor"]
+            
         raise ValueError(f"unsupported verb: {verb}")
 
 

@@ -17,5 +17,10 @@ COPY tools/packaging/package-fixture.sh /usr/local/bin/wbab-package-fixture
 RUN chmod +x /usr/local/bin/wbab-package-real /usr/local/bin/wbab-package-fixture \
     && ln -s /usr/local/bin/wbab-package-real /usr/local/bin/wbab-package
 
+# Security: Run as non-root user
+RUN groupadd -g 1000 wbab && useradd -u 1000 -g wbab -m -s /bin/bash wbab
 WORKDIR /workspace
+RUN chown wbab:wbab /workspace
+USER wbab
+
 CMD ["bash"]
