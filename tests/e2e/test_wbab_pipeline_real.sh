@@ -24,7 +24,7 @@ export WBAB_SIGNER_IMAGE="${WBAB_SIGNER_IMAGE:-debian}"
 # validate infrastructure boot/pull/exec path.
 export WBAB_WINEBOT_PROFILE="${WBAB_WINEBOT_PROFILE:-headless}"
 export WBAB_WINEBOT_IMAGE="${WBAB_WINEBOT_IMAGE:-ghcr.io/mark-e-deyoung/winebot}"
-export WBAB_WINEBOT_TAG="${WBAB_WINEBOT_TAG:-stable}"
+export WBAB_WINEBOT_TAG="${WBAB_WINEBOT_TAG:-v0.9.5}"
 export WBAB_SMOKE_SKIP_INSTALL="${WBAB_SMOKE_SKIP_INSTALL:-1}"
 export WBAB_SMOKE_TRUST_DEV_CERT="${WBAB_SMOKE_TRUST_DEV_CERT:-0}"
 export WBAB_SMOKE_SESSION_ID="${WBAB_SMOKE_SESSION_ID:-e2e-real}"

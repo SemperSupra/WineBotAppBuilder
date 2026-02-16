@@ -19,7 +19,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_TAG` (recommended): toolchain image tag to pull (e.g., `v1.0.0`)
 - `WBAB_ALLOW_LOCAL_BUILD` (default `0`): allow building toolchain images locally
 - `WBAB_WINEBOT_IMAGE` (default `ghcr.io/mark-e-deyoung/winebot`): WineBot image
-- `WBAB_WINEBOT_TAG` (default `stable`): WineBot image tag
+- `WBAB_WINEBOT_TAG` (default `v0.9.5`): WineBot image tag
 - `WBAB_WINEBOT_PROFILE` (default `headless`): compose profile
 - `WBAB_WINEBOT_SERVICE` (default `winebot`): compose service name
 
@@ -34,6 +34,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_PACKAGER_DOCKERFILE` (default `tools/packaging/Dockerfile`): local packager Dockerfile path
 - `WBAB_PACKAGE_CMD` (default consumes `out/FakeApp.exe`, creates `dist/FakeSetup.exe` + `dist/package-fixture.txt`): package command executed in packager container
 - `WBAB_SIGNER_IMAGE` (default `ghcr.io/sempersupra/winebotappbuilder-signer`): signer image
+- `WBAB_LINTER_IMAGE` (default `ghcr.io/sempersupra/winebotappbuilder-linter`): linter image
 - `WBAB_SIGNER_DOCKERFILE` (default `tools/signing/Dockerfile`): local signer Dockerfile path
 - `WBAB_SIGN_CMD` (default consumes `dist/FakeSetup.exe`, creates `dist/FakeSetup-signed.exe` + `dist/sign-fixture.txt`): sign command executed in signer container
 - `WBAB_SIGN_USE_DEV_CERT` (default `0`): enable dev-cert signing mode (uses cert lifecycle material + `osslsigncode`)
@@ -101,7 +102,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 ## Policy constraints (must hold)
 - If `WBAB_ALLOW_LOCAL_BUILD != 1`, the system must not invoke `docker build` for build/package/sign images.
 - WineBot runs are pull-first from GHCR; local WineBot build path is disabled.
-- CI policy: prefer official `ghcr.io/mark-e-deyoung/winebot:stable` for WineBot runs.
+- CI policy: prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5` for WineBot runs.
 - Commit policy: one git commit per requested implementation change unless the user explicitly requests batching.
 - Build/package default fixture commands must use concrete container scripts (`tools/winbuild/build-fixture.sh`, `tools/packaging/package-fixture.sh`) with output validation.
 - Core baseline policy: repeated `wbabd run <same-op-id> ...` must not re-execute succeeded operations.

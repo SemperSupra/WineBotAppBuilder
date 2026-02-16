@@ -2,7 +2,6 @@
 import asyncio
 import time
 import sys
-import os
 import threading
 import json
 import urllib.request
@@ -44,7 +43,7 @@ def make_request_sync(port, op_id):
         req.add_header("Content-Type", "application/json")
         # Wait up to 10 seconds.
         with urllib.request.urlopen(req, timeout=10) as response:
-            resp_body = response.read()
+            _resp_body = response.read()
     except Exception as e:
         print(f"Request error for {op_id}: {e}")
         return 0

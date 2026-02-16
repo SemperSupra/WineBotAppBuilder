@@ -135,7 +135,7 @@ cmd_plan() {
   local sign_use_dev_cert="${WBAB_SIGN_USE_DEV_CERT:-0}"
   local dev_cert_dir="${WBAB_DEV_CERT_DIR:-../agent-privileged/signing/dev}"
   local winebot_image="${WBAB_WINEBOT_IMAGE:-ghcr.io/mark-e-deyoung/winebot}"
-  local winebot_tag="${WBAB_WINEBOT_TAG:-stable}"
+  local winebot_tag="${WBAB_WINEBOT_TAG:-v0.9.5}"
   local winebot_profile="${WBAB_WINEBOT_PROFILE:-headless}"
   local winebot_service="${WBAB_WINEBOT_SERVICE:-winebot}"
   local wbab_tag="${WBAB_TAG:-}"

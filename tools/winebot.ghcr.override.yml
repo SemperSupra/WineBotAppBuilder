@@ -1,4 +1,4 @@
 services:
   winebot:
-    image: ghcr.io/mark-e-deyoung/winebot:stable
+    image: ghcr.io/mark-e-deyoung/winebot:v0.9.5
     pull_policy: always

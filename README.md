@@ -57,7 +57,7 @@ cd WineBotAppBuilder/workspace
 - Idempotency is required for all operations, regardless of activation path.
 - UI-specific behavior lives outside core.
 - Default policy: **prefer GHCR** (pull-first), do not build locally unless explicitly enabled.
-- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:stable`** over local build.
+- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5`** over local build.
 
 ## Documentation for Humans
 - **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.

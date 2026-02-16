@@ -1,1 +1,1 @@
-zeroconf>=0.131.0
+zeroconf==0.148.0

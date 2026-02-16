@@ -2,7 +2,7 @@ import asyncio
 import socket
 import uuid
 import logging
-from typing import Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 try:
     from zeroconf import IPVersion, ServiceInfo, Zeroconf, ServiceBrowser, ServiceStateChange
@@ -62,7 +62,7 @@ class DiscoveryManager:
                         "version": props.get("version")
                     })
 
-        browser = ServiceBrowser(zc, self.SERVICE_TYPE, handlers=[on_service_state_change])
+        _browser = ServiceBrowser(zc, self.SERVICE_TYPE, handlers=[on_service_state_change])
         await asyncio.sleep(timeout)
         zc.close()
         return found
@@ -140,7 +140,7 @@ class DiscoveryBrowser:
                 del self.found_peers[name]
 
     async def discover(self, timeout: float = 3.0) -> List[Dict]:
-        browser = ServiceBrowser(self.zc, DiscoveryManager.SERVICE_TYPE, handlers=[self.on_service_state_change])
+        _browser = ServiceBrowser(self.zc, DiscoveryManager.SERVICE_TYPE, handlers=[self.on_service_state_change])
         await asyncio.sleep(timeout)
         return list(self.found_peers.values())
 

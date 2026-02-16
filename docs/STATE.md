@@ -11,7 +11,7 @@ TLA+ formal model expanded to cover full daemon lifecycle (step-level retry/resu
 Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 
 ## What is included
-- Pull-first WineBot runner scripts (GHCR stable preferred)
+- Pull-first WineBot runner scripts (GHCR v0.9.5 preferred)
 - Pull-first winbuild runner script (containerized build execution)
 - Pull-first packaging runner script (NSIS-first containerized packaging execution)
 - Concrete winbuild fixture build implementation path (`tools/winbuild/build-fixture.sh`, default in `tools/winbuild-build.sh`)
@@ -36,7 +36,7 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 - CI gates (lint/shell-unit/contract/policy/e2e-smoke)
 - Mocked e2e pipeline test (`build -> package -> sign -> smoke`)
 - Opt-in real Docker/WineBot e2e workflow (`.github/workflows/e2e-real.yml`)
-- Policy checks enforcing official WineBot source (`ghcr.io/mark-e-deyoung/winebot:stable`)
+- Policy checks enforcing official WineBot source (`ghcr.io/mark-e-deyoung/winebot:v0.9.5`)
 - Real e2e workflow artifact upload (`actions/upload-artifact`) for `artifacts/`, `out/`, and `dist/`
 - Default fixture wiring across pipeline: `out/FakeApp.exe` -> `dist/FakeSetup.exe` -> `dist/FakeSetup-signed.exe`
 - Dev signing certificate lifecycle scripts (`scripts/signing/dev-cert.sh`) with init/rotate/export/import/status
@@ -180,6 +180,12 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 ## What is not included (yet)
 - Model-based tests
 - Public release of toolchain images
+
+## Dependency Updates (2026-02-16)
+- **zeroconf**: Pinned to `0.148.0` in `requirements.txt`.
+- **WineBot**: Pinned to `v0.9.5` across all toolchain defaults.
+- **Project Organization**: Implemented `agent-sandbox/`, `agent-privileged/`, and `manual/` root directory structure (see `ORGANIZATION_POLICY.md`).
+- **Unified Linter**: Implemented containerized linting (`tools/linter/Dockerfile`) enforcing `shellcheck`, `ruff`, `hadolint`, and `trivy` across local and CI/CD environments.
 
 ## Next actions
 1. Publish toolchain images to GHCR

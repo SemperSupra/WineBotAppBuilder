@@ -79,7 +79,7 @@ TLA CI execution notes:
 
 ## Default policies
 - Prefer `docker compose` over `docker-compose`, but support both.
-- Prefer official WineBot image `ghcr.io/mark-e-deyoung/winebot:stable` over local builds.
+- Prefer official WineBot image `ghcr.io/mark-e-deyoung/winebot:v0.9.5` over local builds.
 - No local builds unless explicitly enabled by env flags.
 
 ## Next increments (planned)
