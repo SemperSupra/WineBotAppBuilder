@@ -29,9 +29,14 @@ grep -q -- 'buildx build --check --progress=plain --file .*/tools/signing/Docker
   exit 1
 }
 
+grep -q -- 'buildx build --check --progress=plain --file .*/tools/linter/Dockerfile' "${MOCK_DOCKER_LOG}" || {
+  echo "dry-check must validate linter Dockerfile with buildx --check" >&2
+  exit 1
+}
+
 count="$(wc -l < "${MOCK_DOCKER_LOG}")"
-[[ "${count}" == "3" ]] || {
-  echo "dry-check must invoke docker exactly three times (once per Dockerfile)" >&2
+[[ "${count}" == "4" ]] || {
+  echo "dry-check must invoke docker exactly four times (once per Dockerfile)" >&2
   exit 1
 }
 
