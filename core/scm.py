@@ -22,16 +22,19 @@ def sanitize_git_url(url: str) -> str:
     return url
 
 class GitSourceManager:
-    def __init__(self):
-        pass
+    def __init__(self, root_dir: Optional[Path] = None):
+        self.root_dir = root_dir or Path.cwd()
 
     def prepare_source(self, url: str, ref: str) -> Path:
         """
-        Clones a git repository to a temporary directory and checks out the specified ref.
-        Returns the path to the temporary directory.
+        Clones a git repository to a directory under agent-sandbox/ and checks out the specified ref.
+        Returns the path to the directory.
         """
-        # Create a secure temporary directory
-        temp_dir = Path(tempfile.mkdtemp(prefix="wbab-git-source-"))
+        # Create a secure temporary directory under agent-sandbox/
+        sandbox_dir = self.root_dir / "agent-sandbox"
+        sandbox_dir.mkdir(parents=True, exist_ok=True)
+
+        temp_dir = Path(tempfile.mkdtemp(prefix="git-source-", dir=sandbox_dir))
 
         try:
             # Clone the repository

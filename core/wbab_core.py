@@ -305,7 +305,7 @@ class Executor:
             effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
 
             if plan.source.get("type") == "git":
-                git_mgr = GitSourceManager()
+                git_mgr = GitSourceManager(self.root_dir)
                 url = plan.source["url"]
                 safe_url = sanitize_git_url(url)
                 ref = plan.source.get("ref", "")
