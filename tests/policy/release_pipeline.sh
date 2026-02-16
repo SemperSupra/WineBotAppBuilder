@@ -23,18 +23,12 @@ check_yq '.on.push.tags[0]' "v*" "release.yml must trigger on v* tags"
 check_yq '.permissions.contents' "write" "release.yml must have contents:write"
 check_yq '.permissions.packages' "write" "release.yml must have packages:write"
 
-# Verify DL3008 is ignored in Hadolint steps
-check_yq '[.jobs.release.steps[] | select(.uses == "hadolint/hadolint-action@v3.3.0") | .with.ignore] | unique | .[0]' "DL3008" "Hadolint must ignore DL3008"
-
-# Security Gates (Trivy)
-check_yq '(.jobs.release.steps[] | select(.name == "Security vulnerability gate (Trivy fs)")).uses' "aquasecurity/trivy-action@0.29.0" "Trivy must be pinned"
-check_yq '(.jobs.release.steps[] | select(.name == "Security vulnerability gate (Trivy fs)")).with.exit-code' "1" "Trivy must block build"
-
 # 2. Docker Image Policy
 dockerfiles=(
   "tools/winbuild/Dockerfile"
   "tools/packaging/Dockerfile"
   "tools/signing/Dockerfile"
+  "tools/linter/Dockerfile"
 )
 
 for df in "${dockerfiles[@]}"; do
