@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/.wbab/signing/dev}"
+DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/../agent-privileged/signing/dev}"
 
 CRT="${DEV_CERT_DIR}/dev.crt.pem"
 KEY="${DEV_CERT_DIR}/dev.key.pem"

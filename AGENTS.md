@@ -10,6 +10,7 @@ Agents may be used at different times; assume limited context. Follow the **Cont
 
 ## Global invariants (never violate)
 - No secrets or private keys committed to the repo.
+- **Project Organization:** Respect the separation of concerns in `ORGANIZATION_POLICY.md` (root).
 - `main` must stay green (CI gates pass).
 - Default behavior is pull-first from GHCR; no local toolchain builds unless explicitly enabled.
 - WineBot runner must prefer GHCR stable WineBot image by default.

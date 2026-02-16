@@ -550,10 +550,23 @@ class Executor:
         raise ValueError(f"unsupported verb: {verb}")
 
 
+def _get_project_root(root_dir: Path) -> Path:
+    # If root_dir is 'workspace', project root is parent.
+    # Otherwise, assume root_dir is already the project root or we are inside it.
+    if root_dir.name == "workspace":
+        return root_dir.parent
+    return root_dir
+
+
 def default_store_path(root_dir: Path) -> Path:
     env_path = os.environ.get("WBABD_STORE_PATH")
     if env_path:
         return Path(env_path)
+    project_root = _get_project_root(root_dir)
+    # Prefer new policy-compliant path
+    new_path = project_root / "agent-sandbox" / "state" / "core-store.json"
+    if new_path.parent.exists() or (project_root / "agent-sandbox").exists():
+        return new_path
     return root_dir / ".wbab" / "core-store.json"
 
 
@@ -561,4 +574,9 @@ def default_audit_path(root_dir: Path) -> Path:
     env_path = os.environ.get("WBABD_AUDIT_LOG_PATH")
     if env_path:
         return Path(env_path)
+    project_root = _get_project_root(root_dir)
+    # Prefer new policy-compliant path
+    new_path = project_root / "agent-sandbox" / "state" / "audit-log.jsonl"
+    if new_path.parent.exists() or (project_root / "agent-sandbox").exists():
+        return new_path
     return root_dir / ".wbab" / "audit-log.jsonl"

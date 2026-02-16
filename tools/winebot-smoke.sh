@@ -32,8 +32,8 @@ SMOKE_TRUST_DEV_CERT="${WBAB_SMOKE_TRUST_DEV_CERT:-0}"
 INSTALLER_ARGS="${WBAB_INSTALLER_ARGS:-/S}"
 APP_ARGS="${WBAB_APP_ARGS:-}"
 SESSION_ID="${WBAB_SMOKE_SESSION_ID:-$(date -u +%Y%m%dT%H%M%SZ)}"
-ARTIFACTS_DIR="${WBAB_ARTIFACTS_DIR:-${ROOT_DIR}/artifacts/winebot/${SESSION_ID}}"
-DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/.wbab/signing/dev}"
+ARTIFACTS_DIR="${WBAB_ARTIFACTS_DIR:-${ROOT_DIR}/../agent-sandbox/artifacts/winebot/${SESSION_ID}}"
+DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/../agent-privileged/signing/dev}"
 DEV_CERT_CRT="${WBAB_DEV_CERT_CRT:-${DEV_CERT_DIR}/dev.crt.pem}"
 
 # Automated verification options
