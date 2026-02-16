@@ -355,6 +355,60 @@ class Executor:
             self.audit.emit("system.cleanup", status="ok", details={"pruned_count": count})
         return count
 
+    def cancel(self, op_id: str) -> Dict[str, Any]:
+        """
+        Attempts to cancel a running operation by identifying the process holding
+        the workspace lock and sending a SIGTERM.
+        """
+        op = self.store.get(op_id)
+        if not op:
+            return {"status": "error", "error": "not_found"}
+        
+        if op.get("status") != "running":
+            return {"status": "error", "error": f"cannot cancel operation in status: {op.get('status')}"}
+
+        project_dir = Path(op.get("args", ["."])[0])
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        lock_file = project_dir / ".wbab.lock"
+        if not lock_file.exists():
+            op["status"] = "failed"
+            op["finished_at"] = self._now()
+            op["result"] = {"error": "Cancelled (no workspace lock found)", "step": "cancel"}
+            self.store.upsert(op_id, op)
+            return {"status": "succeeded", "message": "Operation marked as failed (stale state detected)"}
+
+        # Try to read PID from lock file
+        pid = None
+        try:
+            with open(lock_file, "r") as f:
+                content = f.read().strip()
+                if content:
+                    pid = int(content)
+        except (ValueError, OSError):
+            pass
+
+        if pid:
+            try:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+                # Give it a moment to handle signal if it's the same machine
+                time.sleep(0.1)
+            except ProcessLookupError:
+                # Process already dead
+                pass
+            except Exception as exc:
+                return {"status": "error", "error": f"failed to signal process {pid}: {exc}"}
+
+        op["status"] = "failed"
+        op["finished_at"] = self._now()
+        op["result"] = {"error": "Cancelled by user", "step": "cancel"}
+        self.store.upsert(op_id, op)
+        self._audit("operation.cancelled", plan=Plan(op_id, op.get("verb",""), op.get("args",[]), [], {}), status="failed", details={"pid": pid})
+        
+        return {"status": "succeeded", "message": f"Operation cancelled (SIGTERM sent to PID {pid or 'unknown'})"}
+
     def _tool_path(self, rel: str) -> Path:
         return self.root_dir / rel
 

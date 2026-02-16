@@ -438,6 +438,19 @@ async def _handle_http(
                     resp_code = 403
                     resp_body = {"error": "forbidden", "reason": reason}
 
+        elif method == "DELETE":
+            if parsed.path.startswith("/status/"):
+                allowed, reason = _authorize_operation(authz_policy, principal, "run") # Cancellation requires 'run' permission
+                if allowed:
+                    op_id = parsed.path.split("/")[-1]
+                    resp_body = await asyncio.to_thread(executor.cancel, op_id)
+                    if resp_body.get("status") == "error":
+                        resp_code = 400
+                else:
+                    audit.emit("authz.denied", status="forbidden", details={"principal": principal, "op": "cancel", "reason": reason, "client_ip": client_ip})
+                    resp_code = 403
+                    resp_body = {"error": "forbidden", "reason": reason}
+
         elif method == "POST":
             if parsed.path in {"/plan", "/run"}:
                 op_id = str(payload.get("op_id", ""))
@@ -618,6 +631,12 @@ def _handle_api_request(store: OperationStore, planner: Planner, executor: Execu
         if payload is None:
             return 404, {"op_id": op_id, "status": "not_found"}
         return 200, payload
+    if op == "cancel":
+        op_id = str(req.get("op_id", "")).strip()
+        if not op_id:
+            return 400, {"error": "op_id required"}
+        result = executor.cancel(op_id)
+        return (200 if result["status"] == "succeeded" else 400), result
     if op in {"plan", "run"}:
         op_id = str(req.get("op_id", "")).strip()
         verb = str(req.get("verb", "")).strip()
