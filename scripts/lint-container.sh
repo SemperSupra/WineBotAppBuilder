@@ -2,17 +2,12 @@
 # Internal script executed INSIDE the linter container.
 set -euo pipefail
 
-ROOT_DIR="/workspace"
-
 # Fix "dubious ownership" in container mounts
 git config --global --add safe.directory /workspace
 git config --global --add safe.directory /workspace/workspace
 
 # Move to workspace to run git ls-files correctly
 cd /workspace/workspace
-
-# Define exclusion pattern for external projects/submodules
-EXCLUDE_EXT="tools/WineBot/*"
 
 echo "[lint] shellcheck (project-owned scripts)"
 # shellcheck disable=SC2046

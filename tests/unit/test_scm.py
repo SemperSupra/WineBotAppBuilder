@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).parents[2]
 sys.path.insert(0, str(ROOT_DIR))
 
-from core.scm import sanitize_git_url
+from core.scm import sanitize_git_url  # noqa: E402
 
 class TestSCM(unittest.TestCase):
     def test_sanitize_git_url(self):
