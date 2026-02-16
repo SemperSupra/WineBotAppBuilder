@@ -6,6 +6,7 @@ from __future__ import annotations
 import fcntl
 import json
 import os
+import shutil
 import uuid
 import subprocess
 import time
@@ -151,9 +152,14 @@ class OperationStore:
                 data = json.loads(content) if content else self._new_store()
                 data = self._migrate(data)
                 data.setdefault("operations", {})[op_id] = payload
-                f.seek(0)
-                f.truncate()
-                f.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+                
+                # Atomic Write-and-Rename
+                temp_path = self.path.with_suffix(".tmp")
+                with open(temp_path, "w") as tf:
+                    tf.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
+                    tf.flush()
+                    os.fsync(tf.fileno())
+                os.replace(temp_path, self.path)
             finally:
                 fcntl.flock(f, fcntl.LOCK_UN)
 
@@ -665,6 +671,7 @@ class Executor:
                 op["status"] = "failed"
                 op["finished_at"] = self._now()
                 op["result"] = {**exec_result, "step": exec_step}
+                self._rollback_artifacts(plan)
                 self._persist(plan, op)
                 self._audit(
                     "step.failed",
@@ -774,6 +781,23 @@ class Executor:
     def _validate_inputs(self, plan: Plan) -> None:
         if plan.verb == "smoke" and not plan.args:
             raise ValueError("smoke requires installer path argument")
+
+    def _rollback_artifacts(self, plan: Plan) -> None:
+        """Removes output directories on failure to prevent artifact pollution."""
+        project_dir = Path(plan.args[0]) if plan.args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        # We only roll back if we own the directory (safety check)
+        for sub in ["out", "dist"]:
+            p = project_dir / sub
+            if p.exists() and p.is_dir():
+                try:
+                    shutil.rmtree(p, ignore_errors=True)
+                    if self.audit:
+                        self.audit.emit("system.rollback", op_id=plan.op_id, verb=plan.verb, details={"path": str(p)})
+                except Exception:
+                    pass
 
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
         if verb == "lint":

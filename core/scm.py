@@ -33,6 +33,8 @@ class GitSourceManager:
         Clones a git repository to a directory under agent-sandbox/ and checks out the specified ref.
         Yields the path to the directory and ensures cleanup on exit.
         """
+        timeout = int(os.environ.get("WBAB_GIT_TIMEOUT_SECS", "300"))
+
         # Security: Whitelist check
         allowed_domains = os.environ.get("WBAB_GIT_ALLOWED_DOMAINS", "").split(",")
         allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
@@ -56,7 +58,8 @@ class GitSourceManager:
                 ["git", "clone", "--quiet", "--", url, str(temp_dir)],
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=timeout
             )
 
             # Checkout the specific ref
@@ -68,7 +71,8 @@ class GitSourceManager:
                     cwd=temp_dir,
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    timeout=timeout
                 )
 
             # Update submodules recursively
@@ -77,11 +81,14 @@ class GitSourceManager:
                 cwd=temp_dir,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=timeout
             )
 
             yield temp_dir
 
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"Git operation timed out after {timeout} seconds") from e
         except subprocess.CalledProcessError as e:
             # We don't sanitize stderr here because git usually doesn't output the password.
             # But the caller might log the error.
