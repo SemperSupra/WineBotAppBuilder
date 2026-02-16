@@ -30,9 +30,10 @@ Required verbs:
   plan
   api
   run
+  init
 
 Notes:
-- `lint`, `test`, `doctor`, `discover`, `build`, `package`, `sign`, `smoke`, `plan`, and `api` are implemented.
+- `lint`, `test`, `doctor`, `discover`, `build`, `package`, `sign`, `smoke`, `plan`, `api`, and `init` are implemented.
 EOF
 }
 
@@ -167,6 +168,69 @@ cmd_doctor() {
 
   echo "doctor: FAILED"
   return 1
+}
+
+cmd_init() {
+  local project_name="${1:-}"
+  local target_dir="${2:-.}"
+
+  echo "=== WineBotAppBuilder Project Initialization ==="
+  
+  if [[ -z "${project_name}" ]]; then
+    read -rp "Project Name: " project_name
+  fi
+
+  if [[ -z "${project_name}" ]]; then
+    die "project name is required"
+  fi
+
+  mkdir -p "${target_dir}"
+  cd "${target_dir}"
+
+  echo "Initializing structure in $(pwd)..."
+
+  # Standard Directory Structure (ORGANIZATION_POLICY.md)
+  mkdir -p src tests tools out dist agent-sandbox/state agent-sandbox/artifacts agent-privileged/signing manual
+
+  # Base wbab.json
+  cat <<EOF > wbab.json
+{
+  "wbab_version": "0.1",
+  "project": {
+    "name": "$(json_escape "${project_name}")",
+    "version": "0.1.0"
+  },
+  "build": {
+    "type": "cmake",
+    "output_dir": "out"
+  },
+  "package": {
+    "type": "nsis",
+    "output_dir": "dist"
+  }
+}
+EOF
+
+  # Base .gitignore
+  cat <<EOF > .gitignore
+out/
+dist/
+agent-sandbox/
+agent-privileged/
+.wbab.lock
+*.tmp
+__pycache__/
+EOF
+
+  if [[ ! -d ".git" ]]; then
+    git init -q
+    echo "Initialized git repository."
+  fi
+
+  echo "SUCCESS: Project '${project_name}' initialized."
+  echo "Next steps:"
+  echo "  1. Add your Windows source code to 'src/'"
+  echo "  2. Run 'wbab build' to verify the toolchain"
 }
 
 json_escape() {
@@ -497,6 +561,9 @@ verb="$1"; shift || true
 case "${verb}" in
   doctor)
     cmd_doctor "$@"
+    ;;
+  init)
+    cmd_init "$@"
     ;;
   discover)
     cmd_discover "$@"
