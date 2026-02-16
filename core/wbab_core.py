@@ -7,6 +7,7 @@ import fcntl
 import json
 import os
 import shutil
+import sqlite3
 import uuid
 import subprocess
 import time
@@ -56,123 +57,88 @@ class WorkspaceLock:
 
 
 class OperationStore:
-    SCHEMA_VERSION = "wbab.store.v1"
-    LEGACY_SCHEMA = "legacy.unversioned"
+    """SQLite-backed store for idempotent operations."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # Ensure file exists
-        if not self.path.exists():
-            # Atomic creation if possible, or simple write with lock
-            with open(self.path, "w") as f:
-                try:
-                    fcntl.flock(f, fcntl.LOCK_EX)
-                    f.write(json.dumps(self._new_store(), indent=2, sort_keys=True) + "\n")
-                finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
-        else:
-            # Migration check under lock
-            with open(self.path, "r+") as f:
-                try:
-                    fcntl.flock(f, fcntl.LOCK_EX)
-                    content = f.read()
-                    data = json.loads(content) if content else self._new_store()
-                    migrated = self._migrate(data)
-                    if migrated != data:
-                        f.seek(0)
-                        f.truncate()
-                        f.write(json.dumps(migrated, indent=2, sort_keys=True) + "\n")
-                finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
+        self._init_db()
 
-    def _new_store(self) -> Dict[str, Any]:
-        return {
-            "schema_version": self.SCHEMA_VERSION,
-            "instance_id": str(uuid.uuid4()),
-            "operations": {},
-        }
+    def _get_conn(self) -> sqlite3.Connection:
+        # Use a reasonable timeout for concurrent access
+        conn = sqlite3.connect(self.path, timeout=30.0)
+        conn.row_factory = sqlite3.Row
+        return conn
 
-    def _now_iso(self) -> str:
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    def _schema_of(self, data: Dict[str, Any]) -> str:
-        schema = data.get("schema_version")
-        if isinstance(schema, str) and schema.strip():
-            return schema
-        return self.LEGACY_SCHEMA
-
-    def _migrate(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        schema = self._schema_of(data)
-        if schema == self.SCHEMA_VERSION:
-            normalized = dict(data)
-            if not isinstance(normalized.get("operations"), dict):
-                normalized["operations"] = {}
-            if "instance_id" not in normalized:
-                normalized["instance_id"] = str(uuid.uuid4())
-            return normalized
-        if schema == self.LEGACY_SCHEMA:
-            return {
-                "schema_version": self.SCHEMA_VERSION,
-                "instance_id": str(uuid.uuid4()),
-                "operations": data.get("operations", {}) if isinstance(data.get("operations"), dict) else {},
-                "migration": {
-                    "from_schema": self.LEGACY_SCHEMA,
-                    "migrated_at": self._now_iso(),
-                },
-            }
-        raise ValueError(f"unsupported store schema: {schema}")
+    def _init_db(self) -> None:
+        with self._get_conn() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS operations (op_id TEXT PRIMARY KEY, payload TEXT)"
+            )
+            
+            # Ensure instance_id exists
+            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+            if not res:
+                conn.execute("INSERT INTO metadata (key, value) VALUES ('instance_id', ?)", (str(uuid.uuid4()),))
 
     def get_instance_id(self) -> str:
-        with open(self.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                return data.get("instance_id", str(uuid.uuid4()))
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+            return res["value"] if res else str(uuid.uuid4())
 
     def get(self, op_id: str) -> Dict[str, Any] | None:
-        with open(self.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                data = self._migrate(data)
-                return data.get("operations", {}).get(op_id)
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            res = conn.execute("SELECT payload FROM operations WHERE op_id = ?", (op_id,)).fetchone()
+            if res:
+                return json.loads(res["payload"])
+        return None
 
     def upsert(self, op_id: str, payload: Dict[str, Any]) -> None:
-        with open(self.path, "r+") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_EX)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                data = self._migrate(data)
-                data.setdefault("operations", {})[op_id] = payload
-                
-                # Atomic Write-and-Rename
-                temp_path = self.path.with_suffix(".tmp")
-                with open(temp_path, "w") as tf:
-                    tf.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
-                    tf.flush()
-                    os.fsync(tf.fileno())
-                os.replace(temp_path, self.path)
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO operations (op_id, payload) VALUES (?, ?)",
+                (op_id, json.dumps(payload, sort_keys=True))
+            )
+
+    def list_all(self) -> Dict[str, Dict[str, Any]]:
+        """Returns all operations. Used primarily for zombie recovery."""
+        with self._get_conn() as conn:
+            rows = conn.execute("SELECT op_id, payload FROM operations").fetchall()
+            return {row["op_id"]: json.loads(row["payload"]) for row in rows}
 
 
 class AuditLog:
-    """Append-only JSONL audit log for command/event traceability."""
-
-    SCHEMA_VERSION = "wbab.audit.v1"
+    """SQLite-backed audit log for command/event traceability."""
 
     def __init__(self, path: Path, source: str = "wbabd") -> None:
         self.path = path
         self.source = source
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.path, timeout=30.0)
+
+    def _init_db(self) -> None:
+        with self._get_conn() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS audit_events (
+                    event_id TEXT PRIMARY KEY,
+                    ts TEXT,
+                    source TEXT,
+                    actor TEXT,
+                    session_id TEXT,
+                    event_type TEXT,
+                    op_id TEXT,
+                    verb TEXT,
+                    status TEXT,
+                    step TEXT,
+                    details TEXT
+                )"""
+            )
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -187,25 +153,19 @@ class AuditLog:
         step: str = "",
         details: Dict[str, Any] | None = None,
     ) -> None:
-        payload: Dict[str, Any] = {
-            "schema_version": self.SCHEMA_VERSION,
-            "event_id": str(uuid.uuid4()),
-            "ts": self._now(),
-            "source": self.source,
-            "actor": os.environ.get("WBABD_ACTOR", "unknown"),
-            "session_id": os.environ.get("WBABD_SESSION_ID", ""),
-            "event_type": event_type,
-            "op_id": op_id,
-            "verb": verb,
-        }
-        if status:
-            payload["status"] = status
-        if step:
-            payload["step"] = step
-        if details:
-            payload["details"] = details
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, sort_keys=True) + "\n")
+        event_id = str(uuid.uuid4())
+        ts = self._now()
+        actor = os.environ.get("WBABD_ACTOR", "unknown")
+        session_id = os.environ.get("WBABD_SESSION_ID", "")
+        details_json = json.dumps(details) if details else None
+
+        with self._get_conn() as conn:
+            conn.execute(
+                """INSERT INTO audit_events 
+                   (event_id, ts, source, actor, session_id, event_type, op_id, verb, status, step, details)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (event_id, ts, self.source, actor, session_id, event_type, op_id, verb, status, step, details_json)
+            )
 
 
 class Planner:
@@ -250,15 +210,9 @@ class Executor:
         Returns the number of recovered operations.
         """
         count = 0
-        with open(self.store.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else {"operations": {}}
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        ops = self.store.list_all()
 
-        for op_id, op in data.get("operations", {}).items():
+        for op_id, op in ops.items():
             if op.get("status") == "running":
                 project_dir = Path(op.get("args", ["."])[0])
                 if not project_dir.is_absolute():
@@ -309,15 +263,9 @@ class Executor:
 
         # Get active running directories to avoid pruning them
         active_dirs = set()
-        with open(self.store.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else {"operations": {}}
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        ops = self.store.list_all()
         
-        for op in data.get("operations", {}).values():
+        for op in ops.values():
             if op.get("status") == "running":
                 p = Path(op.get("args", ["."])[0])
                 if p.is_absolute() and str(p).startswith(str(sandbox_dir)):

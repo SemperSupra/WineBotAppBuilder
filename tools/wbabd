@@ -140,24 +140,26 @@ def _preflight_trend_summary(root_dir: Path, raw_window: object = "") -> dict:
     recent_statuses: deque[str] = deque(maxlen=window)
     total_events = 0
     if audit_path.exists():
-        with audit_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(row, dict):
-                    continue
-                if row.get("event_type") != "command.preflight":
-                    continue
-                status = str(row.get("status", "")).strip().lower()
-                if status not in {"ok", "failed"}:
-                    continue
-                total_events += 1
-                recent_statuses.append(status)
+        try:
+            import sqlite3
+            with sqlite3.connect(audit_path) as conn:
+                conn.row_factory = sqlite3.Row
+                # Get total count
+                total_events = conn.execute(
+                    "SELECT COUNT(*) FROM audit_events WHERE event_type = 'command.preflight'"
+                ).fetchone()[0]
+                
+                # Get recent window
+                rows = conn.execute(
+                    "SELECT status FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts DESC LIMIT ?",
+                    (window,)
+                ).fetchall()
+                for row in rows:
+                    status = str(row["status"]).strip().lower()
+                    if status in {"ok", "failed"}:
+                        recent_statuses.append(status)
+        except Exception:
+            pass
 
     recent_ok = sum(1 for s in recent_statuses if s == "ok")
     recent_failed = sum(1 for s in recent_statuses if s == "failed")
@@ -343,6 +345,7 @@ async def _handle_http(
     authz_policy: dict[str, set[str]] | None,
     audit: AuditLog,
     max_body: int,
+    semaphore: asyncio.Semaphore,
 ):
     try:
         # Minimal HTTP parser for wbabd needs
@@ -462,18 +465,19 @@ async def _handle_http(
                 op_name = "plan" if parsed.path == "/plan" else "run"
                 allowed, reason = _authorize_operation(authz_policy, principal, op_name, verb)
                 if allowed:
-                    plan = planner.plan(op_id, verb, [str(a) for a in args], git_url=git_url, git_ref=git_ref)
-                    if op_name == "plan":
-                        resp_body = {
-                            "op_id": plan.op_id,
-                            "verb": plan.verb,
-                            "args": plan.args,
-                            "steps": plan.steps,
-                            "source": plan.source
-                        }
-                    else:
-                        resp_body = await asyncio.to_thread(executor.run, plan)
-                        if resp_body["status"] not in {"succeeded", "cached"}: resp_code = 500
+                    async with semaphore:
+                        plan = planner.plan(op_id, verb, [str(a) for a in args], git_url=git_url, git_ref=git_ref)
+                        if op_name == "plan":
+                            resp_body = {
+                                "op_id": plan.op_id,
+                                "verb": plan.verb,
+                                "args": plan.args,
+                                "steps": plan.steps,
+                                "source": plan.source
+                            }
+                        else:
+                            resp_body = await asyncio.to_thread(executor.run, plan)
+                            if resp_body["status"] not in {"succeeded", "cached"}: resp_code = 500
                 else:
                     audit.emit("authz.denied", op_id=op_id, verb=verb, status="forbidden", details={"principal": principal, "op": op_name, "reason": reason, "client_ip": client_ip})
                     resp_code = 403
@@ -505,6 +509,10 @@ async def _serve_async(host, port, store, planner, executor, auth_mode, token, p
     _timeout = _http_request_timeout_secs() # Trigger validation
     tls_ctx = _tls_context_from_env()
     
+    # Worker Pool Control: Limit concurrent task execution
+    max_concurrent = int(os.environ.get("WBAB_MAX_CONCURRENT_RUNS", "4"))
+    semaphore = asyncio.Semaphore(max_concurrent)
+
     # Initialize Discovery
     instance_id = store.get_instance_id()
     discovery = None
@@ -516,7 +524,7 @@ async def _serve_async(host, port, store, planner, executor, auth_mode, token, p
     allow_multi = os.environ.get("WBABD_ALLOW_MULTIPLE_INSTANCES", "0") == "1"
 
     server = await asyncio.start_server(
-        lambda r, w: _handle_http(r, w, store, planner, executor, auth_mode, token, policy, audit, max_body),
+        lambda r, w: _handle_http(r, w, store, planner, executor, auth_mode, token, policy, audit, max_body, semaphore),
         host, port, ssl=tls_ctx
     )
     

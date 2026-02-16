@@ -47,6 +47,21 @@ ensure_daemon_url() {
     return 0
   fi
 
+  local cache_file="${HOME}/.cache/wbab/last_daemon"
+  
+  # Try cache first
+  if [[ -f "${cache_file}" ]]; then
+    local cached_url
+    cached_url=$(cat "${cache_file}")
+    if [[ -n "${cached_url}" ]]; then
+      # Quick ping to see if it is alive (1s timeout)
+      if curl -s --connect-timeout 1 "${cached_url}/health" >/dev/null 2>&1; then
+        export WBABD_URL="${cached_url}"
+        return 0
+      fi
+    fi
+  fi
+
   # Fallback to mDNS discovery
   local discovery_json
   discovery_json=$(python3 -c '
@@ -77,6 +92,11 @@ except Exception:
       address=$(echo "${discovery_json}" | jq -r '.[0].address')
       port=$(echo "${discovery_json}" | jq -r '.[0].port')
       export WBABD_URL="http://${address}:${port}"
+      
+      # Save to cache
+      mkdir -p "$(dirname "${cache_file}")"
+      echo "${WBABD_URL}" > "${cache_file}"
+      
       echo "wbab: auto-discovered daemon at ${WBABD_URL}" >&2
       return 0
     elif [[ "${count}" -gt 1 ]]; then
