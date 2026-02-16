@@ -7,3 +7,4 @@
 
 ## Performance & UX
 - [ ] **Item 4: Configurable Backoff**: Expose `WBAB_RETRY_BACKOFF_BASE` for fine-tuning throttling. (Deferred)
+- [ ] **Item 5: CI/CD Trivy Caching**: Implement `actions/cache` in GitHub workflows to persist the vulnerability database across runs. (Low Priority)
