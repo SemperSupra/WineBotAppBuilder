@@ -31,7 +31,7 @@ export PATH="${TMP}/mockbin:${PATH}"
 export MOCK_LOG="${TMP}/mock.log"
 export WBAB_SIGN_USE_DEV_CERT="1"
 export WBAB_SIGN_AUTOGEN_DEV_CERT="1"
-export WBAB_DEV_CERT_DIR="${TMP}/project/.wbab/signing/dev"
+export WBAB_DEV_CERT_DIR="${TMP}/project/agent-privileged/signing/dev"
 
 bash "${TMP}/tools/sign-dev.sh" "${TMP}/project"
 
@@ -39,6 +39,6 @@ log="$(cat "${MOCK_LOG}")"
 echo "${log}" | grep -q "DOCKER pull " || { echo "Expected docker pull" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER run " || { echo "Expected docker run" >&2; exit 1; }
 echo "${log}" | grep -q "osslsigncode sign" || { echo "Expected osslsigncode command in dev-cert mode" >&2; exit 1; }
-[[ -f "${TMP}/project/.wbab/signing/dev/dev.pfx" ]] || { echo "Expected autogen dev.pfx" >&2; exit 1; }
+[[ -f "${TMP}/project/agent-privileged/signing/dev/dev.pfx" ]] || { echo "Expected autogen dev.pfx" >&2; exit 1; }
 
 echo "OK: sign dev-cert mode"

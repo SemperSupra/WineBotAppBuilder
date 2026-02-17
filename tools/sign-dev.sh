@@ -15,7 +15,7 @@ set -euo pipefail
 #   WBAB_SIGN_CMD (default creates a fixture output in dist/)
 #   WBAB_SIGN_USE_DEV_CERT (default 0): use dev cert + osslsigncode path
 #   WBAB_SIGN_AUTOGEN_DEV_CERT (default 1 when WBAB_SIGN_USE_DEV_CERT=1): auto-init dev cert
-#   WBAB_DEV_CERT_DIR (default .wbab/signing/dev): cert material dir
+#   WBAB_DEV_CERT_DIR (default agent-privileged/signing/dev): cert material dir
 #   WBAB_SIGN_INPUT (default dist/FakeSetup.exe): sign input for dev-cert mode
 #   WBAB_SIGN_OUTPUT (default dist/FakeSetup-signed.exe): sign output for dev-cert mode
 
@@ -39,7 +39,7 @@ REMOTE_IMAGE="${SIGNER_IMAGE}:${SIGNER_TAG}"
 SIGN_CMD="${WBAB_SIGN_CMD:-if [[ ! -f dist/FakeSetup.exe ]]; then echo 'missing dist/FakeSetup.exe' >&2; exit 2; fi; mkdir -p dist && cp -f dist/FakeSetup.exe dist/FakeSetup-signed.exe && echo 'fixture sign completed' > dist/sign-fixture.txt}"
 SIGN_USE_DEV_CERT="${WBAB_SIGN_USE_DEV_CERT:-0}"
 SIGN_AUTOGEN_DEV_CERT="${WBAB_SIGN_AUTOGEN_DEV_CERT:-1}"
-DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/.wbab/signing/dev}"
+DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/agent-privileged/signing/dev}"
 SIGN_INPUT="${WBAB_SIGN_INPUT:-dist/FakeSetup.exe}"
 SIGN_OUTPUT="${WBAB_SIGN_OUTPUT:-dist/FakeSetup-signed.exe}"
 

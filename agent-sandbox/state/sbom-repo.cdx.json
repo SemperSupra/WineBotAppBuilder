@@ -1,0 +1,80 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:609ee6fb-90ae-4b9f-8562-87721e1aa48c",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-02-17T15:38:41+00:00",
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "group": "aquasecurity",
+          "name": "trivy",
+          "version": "0.59.1"
+        }
+      ]
+    },
+    "component": {
+      "bom-ref": "d7476b5a-b19f-4be6-a7a5-267a24222a17",
+      "type": "application",
+      "name": ".",
+      "properties": [
+        {
+          "name": "aquasecurity:trivy:SchemaVersion",
+          "value": "2"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "bom-ref": "50585dec-1e10-495e-bf2d-4e8977f07167",
+      "type": "application",
+      "name": "requirements.txt",
+      "properties": [
+        {
+          "name": "aquasecurity:trivy:Class",
+          "value": "lang-pkgs"
+        },
+        {
+          "name": "aquasecurity:trivy:Type",
+          "value": "pip"
+        }
+      ]
+    },
+    {
+      "bom-ref": "pkg:pypi/zeroconf@0.148.0",
+      "type": "library",
+      "name": "zeroconf",
+      "version": "0.148.0",
+      "purl": "pkg:pypi/zeroconf@0.148.0",
+      "properties": [
+        {
+          "name": "aquasecurity:trivy:PkgType",
+          "value": "pip"
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "50585dec-1e10-495e-bf2d-4e8977f07167",
+      "dependsOn": [
+        "pkg:pypi/zeroconf@0.148.0"
+      ]
+    },
+    {
+      "ref": "d7476b5a-b19f-4be6-a7a5-267a24222a17",
+      "dependsOn": [
+        "50585dec-1e10-495e-bf2d-4e8977f07167"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/zeroconf@0.148.0",
+      "dependsOn": []
+    }
+  ],
+  "vulnerabilities": []
+}

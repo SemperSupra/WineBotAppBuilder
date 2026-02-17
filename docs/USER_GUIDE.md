@@ -91,7 +91,7 @@ Before signing, initialize the internal CA:
 ```bash
 export WBAB_SIGN_INPUT="dist/MySetup.exe"
 export WBAB_SIGN_OUTPUT="dist/MySetup-signed.exe"
-export WBAB_SIGN_CMD="osslsigncode sign -pkcs12 .wbab/signing/pki/codesign.pfx -readpass .wbab/signing/pki/codesign.pfx.pass -h sha256 -in ${WBAB_SIGN_INPUT} -out ${WBAB_SIGN_OUTPUT}"
+export WBAB_SIGN_CMD="osslsigncode sign -pkcs12 agent-privileged/signing/pki/codesign.pfx -readpass agent-privileged/signing/pki/codesign.pfx.pass -h sha256 -in ${WBAB_SIGN_INPUT} -out ${WBAB_SIGN_OUTPUT}"
 
 ./tools/wbab sign myapp/
 ```
@@ -102,7 +102,7 @@ Run your signed installer in a headless Wine environment and collect evidence:
 
 ```bash
 export WBAB_SMOKE_TRUST_DEV_CERT=1
-export WBAB_DEV_CERT_CRT=".wbab/signing/pki/ca.crt.pem"
+export WBAB_DEV_CERT_CRT="agent-privileged/signing/pki/ca.crt.pem"
 export WBAB_SANITY_EXE="C:\Program Files\MyApp\App.exe"
 export WBAB_INSTALLER_ARGS="/S"
 

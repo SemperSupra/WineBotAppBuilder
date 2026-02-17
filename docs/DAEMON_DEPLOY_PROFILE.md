@@ -10,7 +10,7 @@ scripts/security/daemon-pki.sh init
 ```
 
 Default output dir:
-- `.wbab/daemon-pki`
+- `agent-privileged/daemon-pki`
 
 Override output dir:
 
@@ -31,10 +31,10 @@ Minimum internal/private secure profile:
 
 ```bash
 WBABD_AUTH_MODE=token \
-WBABD_API_TOKEN_FILE=.wbab/daemon-token.txt \
-WBABD_TLS_CERT_FILE=.wbab/daemon-pki/server.crt.pem \
-WBABD_TLS_KEY_FILE=.wbab/daemon-pki/server.key.pem \
-WBABD_TLS_CLIENT_CA_FILE=.wbab/daemon-pki/ca.crt.pem \
+WBABD_API_TOKEN_FILE=agent-privileged/daemon-token.txt \
+WBABD_TLS_CERT_FILE=agent-privileged/daemon-pki/server.crt.pem \
+WBABD_TLS_KEY_FILE=agent-privileged/daemon-pki/server.key.pem \
+WBABD_TLS_CLIENT_CA_FILE=agent-privileged/daemon-pki/ca.crt.pem \
 WBABD_HTTP_MAX_BODY_BYTES=1048576 \
 WBABD_HTTP_REQUEST_TIMEOUT_SECS=15 \
 WBABD_PREFLIGHT_AUDIT_WINDOW=50 \
@@ -105,7 +105,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/wbab/.wbab
+ReadWritePaths=/opt/wbab/agent-sandbox
 
 [Install]
 WantedBy=multi-user.target
@@ -126,10 +126,10 @@ docker run --rm \
   --name wbabd \
   --network bridge \
   -p 127.0.0.1:8787:8787 \
-  -v "$PWD:/workspace:ro" \
-  -v "$PWD/.wbab:/workspace/.wbab" \
-  -v "$PWD/.wbab/daemon-pki:/run/wbabd/pki:ro" \
-  -v "$PWD/.wbab/daemon-token.txt:/run/wbabd/token.txt:ro" \
+  -v "$PWD/workspace:/workspace:ro" \
+  -v "$PWD/agent-sandbox:/workspace/agent-sandbox" \
+  -v "$PWD/agent-privileged/daemon-pki:/run/wbabd/pki:ro" \
+  -v "$PWD/agent-privileged/daemon-token.txt:/run/wbabd/token.txt:ro" \
   -e WBABD_AUTH_MODE=token \
   -e WBABD_API_TOKEN_FILE=/run/wbabd/token.txt \
   -e WBABD_TLS_CERT_FILE=/run/wbabd/pki/server.crt.pem \
@@ -146,7 +146,7 @@ Optional preflight before container launch:
 
 ```bash
 set -a
-source .wbab/wbabd.container.env
+source agent-privileged/wbabd.container.env
 set +a
 bash scripts/security/daemon-preflight.sh serve
 ```
@@ -163,24 +163,24 @@ Goal: rotate cert/token material while keeping service availability.
 1. Generate new cert set in staging dir:
 
 ```bash
-WBABD_PKI_DIR=.wbab/daemon-pki-next scripts/security/daemon-pki.sh init
+WBABD_PKI_DIR=agent-privileged/daemon-pki-next scripts/security/daemon-pki.sh init
 ```
 
 2. Create new token file in staging path:
 
 ```bash
 umask 077
-openssl rand -hex 32 > .wbab/daemon-token-next.txt
+openssl rand -hex 32 > agent-privileged/daemon-token-next.txt
 ```
 
 3. Distribute new client cert/key + new token to callers before cutover.
 
 ### 8.2 `systemd` Rolling Restart (single-node)
 1. Update environment file or unit env paths to point at staged material:
-- `WBABD_TLS_CERT_FILE=.wbab/daemon-pki-next/server.crt.pem`
-- `WBABD_TLS_KEY_FILE=.wbab/daemon-pki-next/server.key.pem`
-- `WBABD_TLS_CLIENT_CA_FILE=.wbab/daemon-pki-next/ca.crt.pem`
-- `WBABD_API_TOKEN_FILE=.wbab/daemon-token-next.txt`
+- `WBABD_TLS_CERT_FILE=agent-privileged/daemon-pki-next/server.crt.pem`
+- `WBABD_TLS_KEY_FILE=agent-privileged/daemon-pki-next/server.key.pem`
+- `WBABD_TLS_CLIENT_CA_FILE=agent-privileged/daemon-pki-next/ca.crt.pem`
+- `WBABD_API_TOKEN_FILE=agent-privileged/daemon-token-next.txt`
 
 2. Reload unit definition:
 
@@ -198,10 +198,10 @@ sudo systemctl restart wbabd.service
 
 ```bash
 curl --silent --show-error --fail \
-  --cacert .wbab/daemon-pki-next/ca.crt.pem \
-  --cert .wbab/daemon-pki-next/client.crt.pem \
-  --key .wbab/daemon-pki-next/client.key.pem \
-  -H "Authorization: Bearer $(cat .wbab/daemon-token-next.txt)" \
+  --cacert agent-privileged/daemon-pki-next/ca.crt.pem \
+  --cert agent-privileged/daemon-pki-next/client.crt.pem \
+  --key agent-privileged/daemon-pki-next/client.key.pem \
+  -H "Authorization: Bearer $(cat agent-privileged/daemon-token-next.txt)" \
   https://127.0.0.1:8787/health
 ```
 
@@ -215,10 +215,10 @@ docker run -d \
   --name wbabd-next \
   --network bridge \
   -p 127.0.0.1:8788:8787 \
-  -v "$PWD:/workspace:ro" \
-  -v "$PWD/.wbab:/workspace/.wbab" \
-  -v "$PWD/.wbab/daemon-pki-next:/run/wbabd/pki:ro" \
-  -v "$PWD/.wbab/daemon-token-next.txt:/run/wbabd/token.txt:ro" \
+  -v "$PWD/workspace:/workspace:ro" \
+  -v "$PWD/agent-sandbox:/workspace/agent-sandbox" \
+  -v "$PWD/agent-privileged/daemon-pki-next:/run/wbabd/pki:ro" \
+  -v "$PWD/agent-privileged/daemon-token-next.txt:/run/wbabd/token.txt:ro" \
   -e WBABD_AUTH_MODE=token \
   -e WBABD_API_TOKEN_FILE=/run/wbabd/token.txt \
   -e WBABD_TLS_CERT_FILE=/run/wbabd/pki/server.crt.pem \
@@ -258,8 +258,8 @@ cp deploy/daemon/authz-policy.example.json /etc/wbabd/authz-policy.json
 ```
 
 ```bash
-cp deploy/daemon/wbabd.container.env.example .wbab/wbabd.container.env
-cp deploy/daemon/authz-policy.example.json .wbab/authz-policy.json
+cp deploy/daemon/wbabd.container.env.example agent-privileged/wbabd.container.env
+cp deploy/daemon/authz-policy.example.json agent-privileged/authz-policy.json
 ```
 
 Notes:
@@ -283,11 +283,11 @@ Example diagnostics principal snippet:
 After preflight or startup attempts, inspect persisted diagnostics:
 
 ```bash
-cat .wbab/preflight-status.json
+cat agent-sandbox/state/preflight-status.json
 ```
 
 ```bash
-cat .wbab/preflight-counters.json
+cat agent-sandbox/state/preflight-counters.json
 ```
 
 Trend summary helper:
@@ -315,10 +315,10 @@ tools/wbabd api '{"op":"preflight_trend","window":25}'
 
 ```bash
 curl --silent --show-error --fail \
-  --cacert .wbab/daemon-pki/ca.crt.pem \
-  --cert .wbab/daemon-pki/client.crt.pem \
-  --key .wbab/daemon-pki/client.key.pem \
-  -H "Authorization: Bearer $(cat .wbab/daemon-token.txt)" \
+  --cacert agent-privileged/daemon-pki/ca.crt.pem \
+  --cert agent-privileged/daemon-pki/client.crt.pem \
+  --key agent-privileged/daemon-pki/client.key.pem \
+  -H "Authorization: Bearer $(cat agent-privileged/daemon-token.txt)" \
   'https://127.0.0.1:8787/preflight-trend?window=25'
 ```
 
@@ -326,11 +326,11 @@ If using a dedicated diagnostics principal over HTTP, pass it explicitly:
 
 ```bash
 curl --silent --show-error --fail \
-  --cacert .wbab/daemon-pki/ca.crt.pem \
-  --cert .wbab/daemon-pki/client.crt.pem \
-  --key .wbab/daemon-pki/client.key.pem \
+  --cacert agent-privileged/daemon-pki/ca.crt.pem \
+  --cert agent-privileged/daemon-pki/client.crt.pem \
+  --key agent-privileged/daemon-pki/client.key.pem \
   -H "X-WBABD-Principal: readonly-ops" \
-  -H "Authorization: Bearer $(cat .wbab/daemon-token.txt)" \
+  -H "Authorization: Bearer $(cat agent-privileged/daemon-token.txt)" \
   'https://127.0.0.1:8787/preflight-trend?window=25'
 ```
 
@@ -434,7 +434,7 @@ Common failure signatures and quick remediation:
 
 4. `ERROR: preflight_trend status is not ok`
 - Cause: daemon trend API failed (invalid inputs/env or missing daemon context).
-- Actions: verify `tools/wbabd api '{"op":"preflight_trend","window":25}'` returns `status=ok`, validate `WBABD_PREFLIGHT_AUDIT_WINDOW`, and ensure `.wbab/audit-log.jsonl` is readable.
+- Actions: verify `tools/wbabd api '{"op":"preflight_trend","window":25}'` returns `status=ok`, validate `WBABD_PREFLIGHT_AUDIT_WINDOW`, and ensure `agent-sandbox/state/audit-log.sqlite` is readable.
 
 Via local API adapter:
 
@@ -450,18 +450,18 @@ Via HTTP adapter:
 
 ```bash
 curl --silent --show-error --fail \
-  --cacert .wbab/daemon-pki/ca.crt.pem \
-  --cert .wbab/daemon-pki/client.crt.pem \
-  --key .wbab/daemon-pki/client.key.pem \
-  -H "Authorization: Bearer $(cat .wbab/daemon-token.txt)" \
+  --cacert agent-privileged/daemon-pki/ca.crt.pem \
+  --cert agent-privileged/daemon-pki/client.crt.pem \
+  --key agent-privileged/daemon-pki/client.key.pem \
+  -H "Authorization: Bearer $(cat agent-privileged/daemon-token.txt)" \
   https://127.0.0.1:8787/preflight-status
 ```
 
 ```bash
 curl --silent --show-error --fail \
-  --cacert .wbab/daemon-pki/ca.crt.pem \
-  --cert .wbab/daemon-pki/client.crt.pem \
-  --key .wbab/daemon-pki/client.key.pem \
-  -H "Authorization: Bearer $(cat .wbab/daemon-token.txt)" \
+  --cacert agent-privileged/daemon-pki/ca.crt.pem \
+  --cert agent-privileged/daemon-pki/client.crt.pem \
+  --key agent-privileged/daemon-pki/client.key.pem \
+  -H "Authorization: Bearer $(cat agent-privileged/daemon-token.txt)" \
   'https://127.0.0.1:8787/preflight-trend?window=25'
 ```

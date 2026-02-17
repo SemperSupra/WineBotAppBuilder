@@ -3,7 +3,7 @@
 This note maps the TLA+ skeleton to concrete daemon behavior so operators and contributors can interpret model checks consistently.
 
 ## Intent To Runtime Mapping
-- TLA variable `opStatus` maps to operation lifecycle status in `.wbab/core-store.json` (`pending`, `running`, `succeeded`, `failed`).
+- TLA variable `opStatus` maps to operation lifecycle status in `agent-sandbox/state/core-store.sqlite` (`pending`, `running`, `succeeded`, `failed`).
 - TLA variable `runAttempts` maps to operation-level retry count progression (`attempts` / `retry_count`) in stored operation payloads.
 - TLA variable `everSucceeded` models idempotency lock-in once an operation reaches `succeeded`.
 
@@ -24,8 +24,8 @@ Runtime translation:
 1. Run baseline checks (`DaemonIdempotency.cfg`) to validate idempotency and non-negative attempt growth.
 2. Run extended checks (`DaemonIdempotencyExtended.cfg`) when reasoning about step-level retry bounds.
 3. Compare model claims with:
-   - `.wbab/core-store.json` (`operations[*].step_state`, `attempts`, `retry_count`)
-   - `.wbab/audit-log.jsonl` (`operation.*`, `step.*`, `command.*`)
+   - `agent-sandbox/state/core-store.sqlite` (`operations[*].step_state`, `attempts`, `retry_count`)
+   - `agent-sandbox/state/audit-log.sqlite` (`operation.*`, `step.*`, `command.*`)
 
 ## Release Sign-Off Config Selection
 Use this decision rule for private/internal release sign-off:

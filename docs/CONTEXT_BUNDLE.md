@@ -18,14 +18,14 @@
 - concrete publish Dockerfiles for winbuild/packaging/signing images
 - core baseline library+daemon shim (`core/wbab_core.py`, `tools/wbabd`)
 - `wbabd` API adapter surface for non-CLI clients (`tools/wbabd api`, optional `tools/wbabd serve`)
-- append-only audit stream for cross-agent traceability (`.wbab/audit-log.jsonl`)
+- append-only audit stream for cross-agent traceability (`agent-sandbox/state/audit-log.sqlite`)
 - daemon API security hardening plan (`docs/DAEMON_API_SECURITY_PLAN.md`)
 - daemon internal PKI helper for TLS/mTLS assets (`scripts/security/daemon-pki.sh`)
 - daemon deploy profile for TLS/mTLS env mapping (`docs/DAEMON_DEPLOY_PROFILE.md`)
 - daemon machine-readable deploy templates (`deploy/daemon/`)
 - daemon startup preflight validator (`scripts/security/daemon-preflight.sh`)
-- daemon preflight diagnostics surface (`.wbab/preflight-status.json`, API ops, HTTP endpoints)
-- daemon startup preflight trend counters (`.wbab/preflight-counters.json`, `command.preflight` audit details)
+- daemon preflight diagnostics surface (`agent-sandbox/state/preflight-status.json`, API ops, HTTP endpoints)
+- daemon startup preflight trend counters (`agent-sandbox/state/preflight-counters.json`, `command.preflight` audit details)
 - daemon preflight trend summary helper (`scripts/security/preflight-trend-report.sh`)
 - daemon preflight trend threshold helper (`scripts/security/preflight-trend-threshold-check.sh`)
 

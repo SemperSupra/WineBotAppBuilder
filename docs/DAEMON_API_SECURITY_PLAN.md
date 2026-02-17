@@ -45,6 +45,11 @@ Phase 2 (mTLS-ready):
 - require client cert validation when enabled
 - map client identity to principal for AuthZ
 
+Phase 3 (Container Isolation):
+- **Remote RCE Guard**: The daemon executor directly constructs and executes `docker run` commands for core verbs. It never executes arbitrary host-side shell scripts, significantly reducing the risk of host compromise.
+- **Non-Root Runtime**: All toolchain containers (`winbuild`, `packager`, `signer`, `linter`) run as a restricted `wbab` user, ensuring that even if a build process is compromised, it has minimal privileges within the container.
+- **Path Jailing**: Strict validation using `Path.resolve()` ensures that all operations are confined to the project root, preventing directory traversal attacks.
+
 ## Authorization (AuthZ) Plan
 Policy model:
 - default deny for all verbs when AuthZ is enabled

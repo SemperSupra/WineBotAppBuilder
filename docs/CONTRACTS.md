@@ -39,8 +39,8 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_SIGN_CMD` (default consumes `dist/FakeSetup.exe`, creates `dist/FakeSetup-signed.exe` + `dist/sign-fixture.txt`): sign command executed in signer container
 - `WBAB_SIGN_USE_DEV_CERT` (default `0`): enable dev-cert signing mode (uses cert lifecycle material + `osslsigncode`)
 - `WBAB_SIGN_AUTOGEN_DEV_CERT` (default `1` when dev-cert mode is enabled): auto-init cert material if missing
-- `WBAB_DEV_CERT_DIR` (default `.wbab/signing/dev`): location for dev cert/key/pfx/pass
-- `WBAB_SIGNING_PKI_DIR` (default `.wbab/signing/pki`): production-like signing PKI helper output directory (`ca` + `codesign` material)
+- `WBAB_DEV_CERT_DIR` (default `agent-privileged/signing/dev`): location for dev cert/key/pfx/pass
+- `WBAB_SIGNING_PKI_DIR` (default `agent-privileged/signing/pki`): production-like signing PKI helper output directory (`ca` + `codesign` material)
 - `WBAB_SIGN_INPUT` (default `dist/FakeSetup.exe`): signing input for dev-cert mode
 - `WBAB_SIGN_OUTPUT` (default `dist/FakeSetup-signed.exe`): signing output for dev-cert mode
 - `WBAB_SMOKE_SKIP_INSTALL` (default `0`): skip WineBot install step (`1` for infrastructure-only smoke checks)
@@ -112,7 +112,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
   - step-level resume: on retry, steps marked `succeeded` must be skipped; failed step is retried
   - persistent step state must include per-step status/attempt counters
   - API/CLI parity: API `run` for a succeeded `op_id` must return cached result semantics (local adapter and HTTP adapter)
-  - store schema: `.wbab/core-store.json` uses `schema_version: "wbab.store.v1"`
+  - store schema: `agent-sandbox/state/core-store.sqlite` uses `schema_version: "wbab.store.v1"`
   - migration hook: unversioned legacy store files must auto-migrate in place while preserving `operations`
 - Audit policy:
   - audit stream is append-only JSONL with schema `wbab.audit.v1`
@@ -137,7 +137,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
   - Policy gate must include a smoke check that executes preflight against deploy templates
   - `wbabd serve --preflight` must execute inline preflight checks before binding listener sockets
   - daemon API must expose preflight trend summary via local op `preflight_trend` and HTTP `GET /preflight-trend`
-  - `scripts/security/preflight-trend-report.sh` must summarize trend from `.wbab/preflight-counters.json` and recent `command.preflight` audit events
+  - `scripts/security/preflight-trend-report.sh` must summarize trend from `agent-sandbox/state/preflight-counters.json` and recent `command.preflight` audit events
   - optional policy gate must support threshold validation against daemon `preflight_trend` output when explicitly enabled
 - Publish-image contract:
   - publish workflow must tag images with release tag and `latest`
