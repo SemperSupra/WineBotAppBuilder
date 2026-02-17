@@ -45,7 +45,9 @@ class WorkspaceLock:
             os.write(self._fd, str(os.getpid()).encode())
         except BlockingIOError:
             os.close(self._fd)
-            raise RuntimeError(f"Workspace is locked by another WBAB process: {self.lock_file}")
+            raise RuntimeError(
+                f"Workspace is locked by another WBAB process: {self.lock_file}"
+            )
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -72,7 +74,9 @@ class OperationStore:
     def _init_db(self) -> None:
         if self.path.exists():
             if self.path.is_dir():
-                raise RuntimeError(f"Database path {self.path} is a directory, expected a file.")
+                raise RuntimeError(
+                    f"Database path {self.path} is a directory, expected a file."
+                )
             if self.path.stat().st_size > 0:
                 with open(self.path, "rb") as f:
                     header = f.read(16)
@@ -80,7 +84,9 @@ class OperationStore:
                         # Read a bit more for debugging
                         f.seek(0)
                         content = f.read(100)
-                        raise RuntimeError(f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}")
+                        raise RuntimeError(
+                            f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}"
+                        )
         with self._get_conn() as conn:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)"
@@ -88,19 +94,28 @@ class OperationStore:
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS operations (op_id TEXT PRIMARY KEY, payload TEXT)"
             )
-            
-            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+
+            res = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'instance_id'"
+            ).fetchone()
             if not res:
-                conn.execute("INSERT INTO metadata (key, value) VALUES ('instance_id', ?)", (str(uuid.uuid4()),))
+                conn.execute(
+                    "INSERT INTO metadata (key, value) VALUES ('instance_id', ?)",
+                    (str(uuid.uuid4()),),
+                )
 
     def get_instance_id(self) -> str:
         with self._get_conn() as conn:
-            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+            res = conn.execute(
+                "SELECT value FROM metadata WHERE key = 'instance_id'"
+            ).fetchone()
             return res["value"] if res else str(uuid.uuid4())
 
     def get(self, op_id: str) -> Dict[str, Any] | None:
         with self._get_conn() as conn:
-            res = conn.execute("SELECT payload FROM operations WHERE op_id = ?", (op_id,)).fetchone()
+            res = conn.execute(
+                "SELECT payload FROM operations WHERE op_id = ?", (op_id,)
+            ).fetchone()
             if res:
                 return json.loads(res["payload"])
         return None
@@ -109,7 +124,7 @@ class OperationStore:
         with self._get_conn() as conn:
             conn.execute(
                 "INSERT OR REPLACE INTO operations (op_id, payload) VALUES (?, ?)",
-                (op_id, json.dumps(payload, sort_keys=True))
+                (op_id, json.dumps(payload, sort_keys=True)),
             )
 
     def list_all(self) -> Dict[str, Dict[str, Any]]:
@@ -133,7 +148,9 @@ class AuditLog:
     def _init_db(self) -> None:
         if self.path.exists():
             if self.path.is_dir():
-                raise RuntimeError(f"Database path {self.path} is a directory, expected a file.")
+                raise RuntimeError(
+                    f"Database path {self.path} is a directory, expected a file."
+                )
             if self.path.stat().st_size > 0:
                 with open(self.path, "rb") as f:
                     header = f.read(16)
@@ -141,7 +158,9 @@ class AuditLog:
                         # Read a bit more for debugging
                         f.seek(0)
                         content = f.read(100)
-                        raise RuntimeError(f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}")
+                        raise RuntimeError(
+                            f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}"
+                        )
         with self._get_conn() as conn:
             conn.execute(
                 """CREATE TABLE IF NOT EXISTS audit_events (
@@ -183,7 +202,19 @@ class AuditLog:
                 """INSERT INTO audit_events 
                    (event_id, ts, source, actor, session_id, event_type, op_id, verb, status, step, details)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (event_id, ts, self.source, actor, session_id, event_type, op_id, verb, status, step, details_json)
+                (
+                    event_id,
+                    ts,
+                    self.source,
+                    actor,
+                    session_id,
+                    event_type,
+                    op_id,
+                    verb,
+                    status,
+                    step,
+                    details_json,
+                ),
             )
 
 
@@ -217,7 +248,9 @@ class Planner:
 
 
 class Executor:
-    def __init__(self, root_dir: Path, store: OperationStore, audit: AuditLog | None = None) -> None:
+    def __init__(
+        self, root_dir: Path, store: OperationStore, audit: AuditLog | None = None
+    ) -> None:
         self.root_dir = root_dir
         self.store = store
         self.audit = audit
@@ -236,7 +269,7 @@ class Executor:
                 project_dir = Path(op.get("args", ["."])[0])
                 if not project_dir.is_absolute():
                     project_dir = self.root_dir / project_dir
-                
+
                 lock_file = project_dir / ".wbab.lock"
                 is_stale = False
                 if not lock_file.exists():
@@ -258,10 +291,19 @@ class Executor:
                 if is_stale:
                     op["status"] = "failed"
                     op["finished_at"] = int(time.time())
-                    op["result"] = {"error": "System aborted (process crash detected)", "step": "system_recovery"}
+                    op["result"] = {
+                        "error": "System aborted (process crash detected)",
+                        "step": "system_recovery",
+                    }
                     self.store.upsert(op_id, op)
                     if self.audit:
-                        self.audit.emit("operation.recovered", op_id=op_id, verb=op.get("verb", ""), status="failed", details={"reason": "stale_lock"})
+                        self.audit.emit(
+                            "operation.recovered",
+                            op_id=op_id,
+                            verb=op.get("verb", ""),
+                            status="failed",
+                            details={"reason": "stale_lock"},
+                        )
                     count += 1
         return count
 
@@ -278,7 +320,7 @@ class Executor:
 
         active_dirs = set()
         ops = self.store.list_all()
-        
+
         for op in ops.values():
             if op.get("status") == "running":
                 p = Path(op.get("args", ["."])[0])
@@ -291,7 +333,7 @@ class Executor:
                 continue
             if str(item) in active_dirs:
                 continue
-            
+
             if (now - item.stat().st_mtime) > max_age_secs:
                 lock_file = item / ".wbab.lock"
                 if lock_file.exists():
@@ -307,15 +349,17 @@ class Executor:
                             os.close(fd)
                     except OSError:
                         pass
-                
+
                 try:
                     shutil.rmtree(item, ignore_errors=True)
                     count += 1
                 except Exception:
                     pass
-        
+
         if count > 0 and self.audit:
-            self.audit.emit("system.cleanup", status="ok", details={"pruned_count": count})
+            self.audit.emit(
+                "system.cleanup", status="ok", details={"pruned_count": count}
+            )
         return count
 
     def cancel(self, op_id: str) -> Dict[str, Any]:
@@ -326,21 +370,30 @@ class Executor:
         op = self.store.get(op_id)
         if not op:
             return {"status": "error", "error": "not_found"}
-        
+
         if op.get("status") != "running":
-            return {"status": "error", "error": f"cannot cancel operation in status: {op.get('status')}"}
+            return {
+                "status": "error",
+                "error": f"cannot cancel operation in status: {op.get('status')}",
+            }
 
         project_dir = Path(op.get("args", ["."])[0])
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
-        
+
         lock_file = project_dir / ".wbab.lock"
         if not lock_file.exists():
             op["status"] = "failed"
             op["finished_at"] = self._now()
-            op["result"] = {"error": "Cancelled (no workspace lock found)", "step": "cancel"}
+            op["result"] = {
+                "error": "Cancelled (no workspace lock found)",
+                "step": "cancel",
+            }
             self.store.upsert(op_id, op)
-            return {"status": "succeeded", "message": "Operation marked as failed (stale state detected)"}
+            return {
+                "status": "succeeded",
+                "message": "Operation marked as failed (stale state detected)",
+            }
 
         pid = None
         try:
@@ -354,20 +407,32 @@ class Executor:
         if pid:
             try:
                 import signal
+
                 os.kill(pid, signal.SIGTERM)
                 time.sleep(0.1)
             except ProcessLookupError:
                 pass
             except Exception as exc:
-                return {"status": "error", "error": f"failed to signal process {pid}: {exc}"}
+                return {
+                    "status": "error",
+                    "error": f"failed to signal process {pid}: {exc}",
+                }
 
         op["status"] = "failed"
         op["finished_at"] = self._now()
         op["result"] = {"error": "Cancelled by user", "step": "cancel"}
         self.store.upsert(op_id, op)
-        self._audit("operation.cancelled", plan=Plan(op_id, op.get("verb",""), op.get("args",[]), [], {}), status="failed", details={"pid": pid})
-        
-        return {"status": "succeeded", "message": f"Operation cancelled (SIGTERM sent to PID {pid or 'unknown'})"}
+        self._audit(
+            "operation.cancelled",
+            plan=Plan(op_id, op.get("verb", ""), op.get("args", []), [], {}),
+            status="failed",
+            details={"pid": pid},
+        )
+
+        return {
+            "status": "succeeded",
+            "message": f"Operation cancelled (SIGTERM sent to PID {pid or 'unknown'})",
+        }
 
     def _tool_path(self, rel: str) -> Path:
         return self.root_dir / rel
@@ -375,7 +440,9 @@ class Executor:
     def _run(self, cmd: List[str]) -> subprocess.CompletedProcess[str]:
         """Runs a command with timeout and streams output to a temporary file."""
         timeout = float(os.environ.get("WBAB_EXECUTION_TIMEOUT_SECS", "3600"))
-        with tempfile.NamedTemporaryFile(mode="w+", delete=False, prefix="wbab-log-") as tmp:
+        with tempfile.NamedTemporaryFile(
+            mode="w+", delete=False, prefix="wbab-log-"
+        ) as tmp:
             tmp_path = tmp.name
             try:
                 proc = subprocess.run(
@@ -385,22 +452,19 @@ class Executor:
                     stderr=subprocess.STDOUT,
                     text=True,
                     check=False,
-                    timeout=timeout
+                    timeout=timeout,
                 )
                 tmp.seek(0)
                 output = tmp.read()
                 return subprocess.CompletedProcess(
-                    args=cmd,
-                    returncode=proc.returncode,
-                    stdout=output,
-                    stderr=""
+                    args=cmd, returncode=proc.returncode, stdout=output, stderr=""
                 )
             except subprocess.TimeoutExpired:
                 return subprocess.CompletedProcess(
                     args=cmd,
                     returncode=124,
                     stdout=f"ERROR: Execution timed out after {timeout} seconds",
-                    stderr=""
+                    stderr="",
                 )
             finally:
                 if os.path.exists(tmp_path):
@@ -412,7 +476,7 @@ class Executor:
     def _get_backoff_delay(self, attempts: int) -> int:
         if attempts <= 1:
             return 0
-        return min(300, 2 ** attempts)
+        return min(300, 2**attempts)
 
     def _validate_outputs(self, plan: Plan) -> bool:
         project_dir = Path(plan.args[0]) if plan.args else Path(".")
@@ -433,41 +497,66 @@ class Executor:
             url = plan.source["url"]
             safe_url = sanitize_git_url(url)
             ref = plan.source.get("ref", "")
-            self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
+            self._audit(
+                "source.fetch",
+                plan=plan,
+                status="started",
+                details={"url": safe_url, "ref": ref},
+            )
             try:
                 with git_mgr.prepare_source(url, ref) as temp_source_path:
-                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
+                    self._audit(
+                        "source.fetch",
+                        plan=plan,
+                        status="succeeded",
+                        details={"path": str(temp_source_path)},
+                    )
                     if not plan.args or plan.args[0] == ".":
                         effective_project_dir = temp_source_path
                     else:
                         rel_path = plan.args[0].lstrip("/")
                         effective_project_dir = temp_source_path / rel_path
-                    
+
                     return self._execute_in_workspace(plan, effective_project_dir)
             except Exception as exc:
-                self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
+                self._audit(
+                    "source.fetch",
+                    plan=plan,
+                    status="failed",
+                    details={"error": str(exc)},
+                )
                 return {
                     "status": "failed",
                     "op_id": plan.op_id,
                     "verb": plan.verb,
-                    "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
+                    "result": {
+                        "error": f"Failed to fetch source: {exc}",
+                        "step": "source_fetch",
+                    },
                 }
         else:
             effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
             return self._execute_in_workspace(plan, effective_project_dir)
 
-    def _execute_in_workspace(self, plan: Plan, effective_project_dir: Path) -> Dict[str, Any]:
+    def _execute_in_workspace(
+        self, plan: Plan, effective_project_dir: Path
+    ) -> Dict[str, Any]:
         project_root = _get_project_root(self.root_dir).resolve()
         try:
             resolved_project_dir = effective_project_dir.resolve()
             if not str(resolved_project_dir).startswith(str(project_root)):
-                raise ValueError(f"SecurityError: Project directory '{resolved_project_dir}' is outside of project root '{project_root}'")
+                raise ValueError(
+                    f"SecurityError: Project directory '{resolved_project_dir}' is outside of project root '{project_root}'"
+                )
         except Exception as exc:
             return {
                 "status": "failed",
                 "op_id": plan.op_id,
                 "verb": plan.verb,
-                "result": {"error": f"Path validation failed: {exc}", "step": "path_jailing"}
+                "result": {
+                    "error": f"Path validation failed: {exc}",
+                    "step": "path_jailing",
+                },
             }
 
         effective_project_dir = resolved_project_dir
@@ -484,8 +573,12 @@ class Executor:
                         "result": existing.get("result", {}),
                     }
                 else:
-                    self._audit("operation.cache_invalidated", plan=plan, status="running",
-                            details={"reason": "expected outputs missing from disk"})
+                    self._audit(
+                        "operation.cache_invalidated",
+                        plan=plan,
+                        status="running",
+                        details={"reason": "expected outputs missing from disk"},
+                    )
 
         try:
             with WorkspaceLock(effective_project_dir):
@@ -498,14 +591,18 @@ class Executor:
                     verb=plan.verb,
                     args=new_args,
                     steps=plan.steps,
-                    source=plan.source
+                    source=plan.source,
                 )
 
                 result = self._run_operation(runtime_plan, existing)
 
                 if plan.source.get("type") == "git" and result["status"] == "succeeded":
-                    self._audit("source.artifacts", plan=plan, status="available",
-                               details={"location": str(effective_project_dir)})
+                    self._audit(
+                        "source.artifacts",
+                        plan=plan,
+                        status="available",
+                        details={"location": str(effective_project_dir)},
+                    )
 
                 return result
 
@@ -514,10 +611,12 @@ class Executor:
                 "status": "failed",
                 "op_id": plan.op_id,
                 "verb": plan.verb,
-                "result": {"error": str(exc), "step": "acquire_workspace_lock"}
+                "result": {"error": str(exc), "step": "acquire_workspace_lock"},
             }
 
-    def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    def _run_operation(
+        self, plan: Plan, existing: Optional[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         started = self._now()
         if existing:
             last_attempt = existing.get("last_attempt_at", 0)
@@ -532,8 +631,8 @@ class Executor:
                     "result": {
                         "error": f"Retry throttled. Please wait {wait_secs} seconds.",
                         "step": "throttling_check",
-                        "retry_after_secs": wait_secs
-                    }
+                        "retry_after_secs": wait_secs,
+                    },
                 }
 
             op = existing
@@ -592,11 +691,24 @@ class Executor:
                     step=validate_step,
                     details={"error": str(exc)},
                 )
-                self._audit("operation.failed", plan=plan, status="failed", step=validate_step, details=op["result"])
-                return {"status": "failed", "op_id": plan.op_id, "verb": plan.verb, "result": op["result"]}
+                self._audit(
+                    "operation.failed",
+                    plan=plan,
+                    status="failed",
+                    step=validate_step,
+                    details=op["result"],
+                )
+                return {
+                    "status": "failed",
+                    "op_id": plan.op_id,
+                    "verb": plan.verb,
+                    "result": op["result"],
+                }
             self._mark_step_succeeded(op, validate_step)
             self._persist(plan, op)
-            self._audit("step.succeeded", plan=plan, status="succeeded", step=validate_step)
+            self._audit(
+                "step.succeeded", plan=plan, status="succeeded", step=validate_step
+            )
 
         exec_step = f"execute_{plan.verb}"
         if op["step_state"][exec_step]["status"] != "succeeded":
@@ -608,7 +720,10 @@ class Executor:
                 plan=plan,
                 status="running",
                 step=exec_step,
-                details={"step_attempt": op["step_state"][exec_step]["attempts"], "command": cmd},
+                details={
+                    "step_attempt": op["step_state"][exec_step]["attempts"],
+                    "command": cmd,
+                },
             )
             proc = self._run(cmd)
             exec_result = {
@@ -632,8 +747,19 @@ class Executor:
                     step=exec_step,
                     details={"exit_code": proc.returncode},
                 )
-                self._audit("operation.failed", plan=plan, status="failed", step=exec_step, details=op["result"])
-                return {"status": "failed", "op_id": plan.op_id, "verb": plan.verb, "result": op["result"]}
+                self._audit(
+                    "operation.failed",
+                    plan=plan,
+                    status="failed",
+                    step=exec_step,
+                    details=op["result"],
+                )
+                return {
+                    "status": "failed",
+                    "op_id": plan.op_id,
+                    "verb": plan.verb,
+                    "result": op["result"],
+                }
             self._mark_step_succeeded(op, exec_step)
             self._persist(plan, op)
             self._audit(
@@ -664,15 +790,26 @@ class Executor:
             }
             self._mark_step_succeeded(op, record_step)
             self._persist(plan, op)
-            self._audit("step.succeeded", plan=plan, status="succeeded", step=record_step)
+            self._audit(
+                "step.succeeded", plan=plan, status="succeeded", step=record_step
+            )
 
         op["status"] = "succeeded"
         op["finished_at"] = self._now()
         self._persist(plan, op)
-        self._audit("operation.succeeded", plan=plan, status="succeeded", details=op["result"])
-        return {"status": "succeeded", "op_id": plan.op_id, "verb": plan.verb, "result": op["result"]}
+        self._audit(
+            "operation.succeeded", plan=plan, status="succeeded", details=op["result"]
+        )
+        return {
+            "status": "succeeded",
+            "op_id": plan.op_id,
+            "verb": plan.verb,
+            "result": op["result"],
+        }
 
-    def _ensure_step_state(self, op: Dict[str, Any], plan: Plan) -> Dict[str, Dict[str, Any]]:
+    def _ensure_step_state(
+        self, op: Dict[str, Any], plan: Plan
+    ) -> Dict[str, Dict[str, Any]]:
         state = op.get("step_state", {})
         for s in plan.steps:
             state.setdefault(
@@ -738,14 +875,19 @@ class Executor:
         project_dir = Path(plan.args[0]) if plan.args else Path(".")
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
-        
+
         for sub in ["out", "dist"]:
             p = project_dir / sub
             if p.exists() and p.is_dir():
                 try:
                     shutil.rmtree(p, ignore_errors=True)
                     if self.audit:
-                        self.audit.emit("system.rollback", op_id=plan.op_id, verb=plan.verb, details={"path": str(p)})
+                        self.audit.emit(
+                            "system.rollback",
+                            op_id=plan.op_id,
+                            verb=plan.verb,
+                            details={"path": str(p)},
+                        )
                 except Exception:
                     pass
 
@@ -768,15 +910,15 @@ class Executor:
                 return [str(self._tool_path("tools/wbab")), "doctor"]
 
         # Security: Remote RCE Guard - Never run arbitrary host scripts in production.
-        tag = os.environ.get("WBAB_TAG", "v0.3.2")
+        tag = os.environ.get("WBAB_TAG", "v0.3.3")
         project_dir = Path(args[0]) if args else Path(".")
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
-        
+
         # Determine the image based on the verb
         image = ""
         entrypoint_cmd = ""
-        
+
         if verb in {"lint", "test", "build"}:
             image = f"ghcr.io/sempersupra/winebotappbuilder-winbuild:{tag}"
             entrypoint_cmd = f"wbab-{verb}"
@@ -788,14 +930,18 @@ class Executor:
             entrypoint_cmd = "wbab-sign"
         elif verb == "doctor":
             return [str(self._tool_path("tools/wbab")), "doctor"]
-        
+
         if image:
             docker_cmd = [
-                "docker", "run", "--rm",
-                "-v", f"{project_dir}:/workspace",
-                "-w", "/workspace",
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{project_dir}:/workspace",
+                "-w",
+                "/workspace",
                 image,
-                entrypoint_cmd
+                entrypoint_cmd,
             ]
             if len(args) > 1:
                 docker_cmd.extend(args[1:])
@@ -805,7 +951,7 @@ class Executor:
             if not args:
                 raise ValueError("smoke requires installer path argument")
             return [str(self._tool_path("tools/winebot-smoke.sh")), *args]
-            
+
         raise ValueError(f"unsupported verb: {verb}")
 
 

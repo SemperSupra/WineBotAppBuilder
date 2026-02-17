@@ -23,19 +23,22 @@ if not wbabd_path.exists():
 
 with open(str(wbabd_path)) as f:
     code = f.read()
-    code = code.replace('if __name__ == "__main__":', 'if False:')
+    code = code.replace('if __name__ == "__main__":', "if False:")
     wbabd = types.ModuleType("wbabd")
     wbabd.__file__ = str(wbabd_path)
     exec(code, wbabd.__dict__)
     sys.modules["wbabd"] = wbabd
 
+
 def make_request_sync(port, op_id):
     url = f"http://127.0.0.1:{port}/run"
-    data = json.dumps({
-        "op_id": op_id,
-        "verb": "doctor", # doctor is a valid verb
-        "args": []
-    }).encode()
+    data = json.dumps(
+        {
+            "op_id": op_id,
+            "verb": "doctor",  # doctor is a valid verb
+            "args": [],
+        }
+    ).encode()
 
     start_time = time.time()
     try:
@@ -51,13 +54,16 @@ def make_request_sync(port, op_id):
     end_time = time.time()
     return end_time - start_time
 
+
 async def make_request(port, op_id):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, make_request_sync, port, op_id)
 
+
 def run_server(port, stop_event):
     # Patch wbabd.Executor.run to be slow
-    with patch.object(wbabd.Executor, 'run') as mock_run:
+    with patch.object(wbabd.Executor, "run") as mock_run:
+
         def side_effect(plan):
             # Simulate work
             time.sleep(2)
@@ -78,8 +84,11 @@ def run_server(port, stop_event):
 
         async def run():
             server = await asyncio.start_server(
-                lambda r, w: wbabd._handle_http(r, w, store, planner, executor, "off", "", None, audit, 1024*1024),
-                "127.0.0.1", port
+                lambda r, w: wbabd._handle_http(
+                    r, w, store, planner, executor, "off", "", None, audit, 1024 * 1024
+                ),
+                "127.0.0.1",
+                port,
             )
 
             # Serve until stopped
@@ -101,12 +110,13 @@ def run_server(port, stop_event):
         except asyncio.CancelledError:
             pass
         except Exception:
-            pass # Server closed
+            pass  # Server closed
         finally:
             loop.close()
 
+
 async def main():
-    port = 8789 # Use a different port just in case
+    port = 8789  # Use a different port just in case
     stop_event = threading.Event()
 
     server_thread = threading.Thread(target=run_server, args=(port, stop_event))
@@ -142,6 +152,7 @@ async def main():
     else:
         print("SUCCESS: Requests ran concurrently. Total time < 3.8s")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

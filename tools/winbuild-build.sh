@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Optional env:
 #   WBAB_TOOLCHAIN_IMAGE (default ghcr.io/sempersupra/winebotappbuilder-winbuild)
-#   WBAB_TAG (default v0.3.2)
+#   WBAB_TAG (default v0.3.3)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_TOOLCHAIN_DOCKERFILE (default tools/winbuild/Dockerfile)
 #   WBAB_BUILD_CMD (default: run fixture build script in tools/winbuild/)
@@ -24,7 +24,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR_ABS="$(cd "${PROJECT_DIR}" && pwd)"
 
 TOOLCHAIN_IMAGE="${WBAB_TOOLCHAIN_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-winbuild}"
-TOOLCHAIN_TAG="${WBAB_TAG:-v0.3.2}"
+TOOLCHAIN_TAG="${WBAB_TAG:-v0.3.3}"
 ALLOW_LOCAL_BUILD="${WBAB_ALLOW_LOCAL_BUILD:-0}"
 TOOLCHAIN_DOCKERFILE="${WBAB_TOOLCHAIN_DOCKERFILE:-${ROOT_DIR}/tools/winbuild/Dockerfile}"
 LOCAL_IMAGE="${TOOLCHAIN_IMAGE}:local"

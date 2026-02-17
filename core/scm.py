@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional, Generator
 from contextlib import contextmanager
 
+
 def sanitize_git_url(url: str) -> str:
     """Redacts credentials from a git URL."""
     try:
@@ -23,6 +24,7 @@ def sanitize_git_url(url: str) -> str:
         pass
     return url
 
+
 class GitSourceManager:
     def __init__(self, root_dir: Optional[Path] = None):
         self.root_dir = root_dir or Path.cwd()
@@ -38,12 +40,14 @@ class GitSourceManager:
         # Security: Whitelist check
         allowed_domains = os.environ.get("WBAB_GIT_ALLOWED_DOMAINS", "").split(",")
         allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
-        
+
         if allowed_domains:
             parsed = urlparse(url)
             domain = parsed.hostname or ""
             if domain not in allowed_domains:
-                raise ValueError(f"SecurityError: Domain '{domain}' is not in WBAB_GIT_ALLOWED_DOMAINS")
+                raise ValueError(
+                    f"SecurityError: Domain '{domain}' is not in WBAB_GIT_ALLOWED_DOMAINS"
+                )
 
         # Create a secure temporary directory under agent-sandbox/
         sandbox_dir = self.root_dir / "agent-sandbox"
@@ -58,7 +62,7 @@ class GitSourceManager:
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
             )
 
             # Checkout the specific ref
@@ -71,7 +75,7 @@ class GitSourceManager:
                     check=True,
                     capture_output=True,
                     text=True,
-                    timeout=timeout
+                    timeout=timeout,
                 )
 
             # Update submodules recursively
@@ -81,13 +85,15 @@ class GitSourceManager:
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
             )
 
             yield temp_dir
 
         except subprocess.TimeoutExpired as e:
-            raise RuntimeError(f"Git operation timed out after {timeout} seconds") from e
+            raise RuntimeError(
+                f"Git operation timed out after {timeout} seconds"
+            ) from e
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Git operation failed: {e.stderr.strip()}") from e
         except Exception as e:
