@@ -18,8 +18,8 @@ echo "artifact" > out/FakeApp.exe
 EOF
 chmod +x "${TMP}/tools/winbuild-build.sh"
 
-store="${TMP}/store.json"
-audit="${TMP}/audit.jsonl"
+store="${TMP}/store.sqlite"
+audit="${TMP}/audit.sqlite"
 
 (
   cd "${TMP}"
@@ -45,18 +45,41 @@ audit="${TMP}/audit.jsonl"
   ./tools/wbabd status audit-op-1
 ) >/dev/null
 
-[[ -s "${audit}" ]] || { echo "Expected non-empty audit log" >&2; exit 1; }
+[[ -f "${audit}" ]] || { echo "Expected audit log database file" >&2; exit 1; }
 
-grep -q '"schema_version": "wbab.audit.v1"' "${audit}" || { echo "Missing schema version in audit log" >&2; exit 1; }
-grep -q '"actor": "ci-shell-test"' "${audit}" || { echo "Missing actor in audit log" >&2; exit 1; }
-grep -q '"session_id": "sess-audit-1"' "${audit}" || { echo "Missing session id in audit log" >&2; exit 1; }
-grep -q '"op_id": "audit-op-1"' "${audit}" || { echo "Missing op_id in audit log" >&2; exit 1; }
-grep -q '"event_type": "command.plan"' "${audit}" || { echo "Missing command.plan event" >&2; exit 1; }
-grep -q '"event_type": "operation.started"' "${audit}" || { echo "Missing operation.started event" >&2; exit 1; }
-grep -q '"event_type": "step.started"' "${audit}" || { echo "Missing step.started event" >&2; exit 1; }
-grep -q '"event_type": "step.succeeded"' "${audit}" || { echo "Missing step.succeeded event" >&2; exit 1; }
-grep -q '"event_type": "operation.succeeded"' "${audit}" || { echo "Missing operation.succeeded event" >&2; exit 1; }
-grep -q '"event_type": "operation.cached"' "${audit}" || { echo "Missing operation.cached event" >&2; exit 1; }
-grep -q '"event_type": "command.status"' "${audit}" || { echo "Missing command.status event" >&2; exit 1; }
+python3 - "${audit}" <<'PY'
+import sqlite3
+import sys
+
+conn = sqlite3.connect(sys.argv[1])
+conn.row_factory = sqlite3.Row
+
+# Verify actors and session IDs
+res = conn.execute("SELECT DISTINCT actor, session_id FROM audit_events").fetchall()
+actors = {r["actor"] for r in res}
+sessions = {r["session_id"] for r in res}
+
+if "ci-shell-test" not in actors:
+    print(f"Missing actor in audit log: {actors}", file=sys.stderr)
+    sys.exit(1)
+if "sess-audit-1" not in sessions:
+    print(f"Missing session id in audit log: {sessions}", file=sys.stderr)
+    sys.exit(1)
+
+# Verify event types
+res = conn.execute("SELECT DISTINCT event_type FROM audit_events").fetchall()
+types = {r["event_type"] for r in res}
+
+expected = {
+    "command.plan", "operation.started", "step.started", 
+    "step.succeeded", "operation.succeeded", "operation.cached", 
+    "command.status"
+}
+
+missing = expected - types
+if missing:
+    print(f"Missing event types in audit log: {missing}", file=sys.stderr)
+    sys.exit(1)
+PY
 
 echo "OK: wbabd audit log schema/events"

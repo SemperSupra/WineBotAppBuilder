@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Minimal core baseline for WBAB: planner + executor + idempotent store."""
+"""Minimal core baseline for WBAB: planner + executor + idempotent store (SQLite)."""
 
 from __future__ import annotations
 
 import fcntl
 import json
 import os
+import shutil
+import sqlite3
 import uuid
 import subprocess
 import time
@@ -38,6 +40,9 @@ class WorkspaceLock:
         self._fd = os.open(self.lock_file, os.O_RDWR | os.O_CREAT)
         try:
             fcntl.flock(self._fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Write PID to lock file for recovery/cancellation
+            os.ftruncate(self._fd, 0)
+            os.write(self._fd, str(os.getpid()).encode())
         except BlockingIOError:
             os.close(self._fd)
             raise RuntimeError(f"Workspace is locked by another WBAB process: {self.lock_file}")
@@ -52,118 +57,107 @@ class WorkspaceLock:
 
 
 class OperationStore:
-    SCHEMA_VERSION = "wbab.store.v1"
-    LEGACY_SCHEMA = "legacy.unversioned"
+    """SQLite-backed store for idempotent operations."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        # Ensure file exists
-        if not self.path.exists():
-            # Atomic creation if possible, or simple write with lock
-            with open(self.path, "w") as f:
-                try:
-                    fcntl.flock(f, fcntl.LOCK_EX)
-                    f.write(json.dumps(self._new_store(), indent=2, sort_keys=True) + "\n")
-                finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
-        else:
-            # Migration check under lock
-            with open(self.path, "r+") as f:
-                try:
-                    fcntl.flock(f, fcntl.LOCK_EX)
-                    content = f.read()
-                    data = json.loads(content) if content else self._new_store()
-                    migrated = self._migrate(data)
-                    if migrated != data:
+        self._init_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.path, timeout=30.0)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    def _init_db(self) -> None:
+        if self.path.exists():
+            if self.path.is_dir():
+                raise RuntimeError(f"Database path {self.path} is a directory, expected a file.")
+            if self.path.stat().st_size > 0:
+                with open(self.path, "rb") as f:
+                    header = f.read(16)
+                    if header != b"SQLite format 3\x00":
+                        # Read a bit more for debugging
                         f.seek(0)
-                        f.truncate()
-                        f.write(json.dumps(migrated, indent=2, sort_keys=True) + "\n")
-                finally:
-                    fcntl.flock(f, fcntl.LOCK_UN)
-
-    def _new_store(self) -> Dict[str, Any]:
-        return {
-            "schema_version": self.SCHEMA_VERSION,
-            "instance_id": str(uuid.uuid4()),
-            "operations": {},
-        }
-
-    def _now_iso(self) -> str:
-        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-    def _schema_of(self, data: Dict[str, Any]) -> str:
-        schema = data.get("schema_version")
-        if isinstance(schema, str) and schema.strip():
-            return schema
-        return self.LEGACY_SCHEMA
-
-    def _migrate(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        schema = self._schema_of(data)
-        if schema == self.SCHEMA_VERSION:
-            normalized = dict(data)
-            if not isinstance(normalized.get("operations"), dict):
-                normalized["operations"] = {}
-            if "instance_id" not in normalized:
-                normalized["instance_id"] = str(uuid.uuid4())
-            return normalized
-        if schema == self.LEGACY_SCHEMA:
-            return {
-                "schema_version": self.SCHEMA_VERSION,
-                "instance_id": str(uuid.uuid4()),
-                "operations": data.get("operations", {}) if isinstance(data.get("operations"), dict) else {},
-                "migration": {
-                    "from_schema": self.LEGACY_SCHEMA,
-                    "migrated_at": self._now_iso(),
-                },
-            }
-        raise ValueError(f"unsupported store schema: {schema}")
+                        content = f.read(100)
+                        raise RuntimeError(f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}")
+        with self._get_conn() as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS operations (op_id TEXT PRIMARY KEY, payload TEXT)"
+            )
+            
+            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+            if not res:
+                conn.execute("INSERT INTO metadata (key, value) VALUES ('instance_id', ?)", (str(uuid.uuid4()),))
 
     def get_instance_id(self) -> str:
-        with open(self.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                return data.get("instance_id", str(uuid.uuid4()))
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+            return res["value"] if res else str(uuid.uuid4())
 
     def get(self, op_id: str) -> Dict[str, Any] | None:
-        with open(self.path, "r") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_SH)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                data = self._migrate(data)
-                return data.get("operations", {}).get(op_id)
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            res = conn.execute("SELECT payload FROM operations WHERE op_id = ?", (op_id,)).fetchone()
+            if res:
+                return json.loads(res["payload"])
+        return None
 
     def upsert(self, op_id: str, payload: Dict[str, Any]) -> None:
-        with open(self.path, "r+") as f:
-            try:
-                fcntl.flock(f, fcntl.LOCK_EX)
-                content = f.read()
-                data = json.loads(content) if content else self._new_store()
-                data = self._migrate(data)
-                data.setdefault("operations", {})[op_id] = payload
-                f.seek(0)
-                f.truncate()
-                f.write(json.dumps(data, indent=2, sort_keys=True) + "\n")
-            finally:
-                fcntl.flock(f, fcntl.LOCK_UN)
+        with self._get_conn() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO operations (op_id, payload) VALUES (?, ?)",
+                (op_id, json.dumps(payload, sort_keys=True))
+            )
+
+    def list_all(self) -> Dict[str, Dict[str, Any]]:
+        with self._get_conn() as conn:
+            rows = conn.execute("SELECT op_id, payload FROM operations").fetchall()
+            return {row["op_id"]: json.loads(row["payload"]) for row in rows}
 
 
 class AuditLog:
-    """Append-only JSONL audit log for command/event traceability."""
-
-    SCHEMA_VERSION = "wbab.audit.v1"
+    """SQLite-backed audit log for command/event traceability."""
 
     def __init__(self, path: Path, source: str = "wbabd") -> None:
         self.path = path
         self.source = source
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._init_db()
+
+    def _get_conn(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.path, timeout=30.0)
+
+    def _init_db(self) -> None:
+        if self.path.exists():
+            if self.path.is_dir():
+                raise RuntimeError(f"Database path {self.path} is a directory, expected a file.")
+            if self.path.stat().st_size > 0:
+                with open(self.path, "rb") as f:
+                    header = f.read(16)
+                    if header != b"SQLite format 3\x00":
+                        # Read a bit more for debugging
+                        f.seek(0)
+                        content = f.read(100)
+                        raise RuntimeError(f"Database path {self.path} is NOT a sqlite database. Header: {header!r}. Content start: {content!r}")
+        with self._get_conn() as conn:
+            conn.execute(
+                """CREATE TABLE IF NOT EXISTS audit_events (
+                    event_id TEXT PRIMARY KEY,
+                    ts TEXT,
+                    source TEXT,
+                    actor TEXT,
+                    session_id TEXT,
+                    event_type TEXT,
+                    op_id TEXT,
+                    verb TEXT,
+                    status TEXT,
+                    step TEXT,
+                    details TEXT
+                )"""
+            )
 
     def _now(self) -> str:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -178,25 +172,19 @@ class AuditLog:
         step: str = "",
         details: Dict[str, Any] | None = None,
     ) -> None:
-        payload: Dict[str, Any] = {
-            "schema_version": self.SCHEMA_VERSION,
-            "event_id": str(uuid.uuid4()),
-            "ts": self._now(),
-            "source": self.source,
-            "actor": os.environ.get("WBABD_ACTOR", "unknown"),
-            "session_id": os.environ.get("WBABD_SESSION_ID", ""),
-            "event_type": event_type,
-            "op_id": op_id,
-            "verb": verb,
-        }
-        if status:
-            payload["status"] = status
-        if step:
-            payload["step"] = step
-        if details:
-            payload["details"] = details
-        with self.path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, sort_keys=True) + "\n")
+        event_id = str(uuid.uuid4())
+        ts = self._now()
+        actor = os.environ.get("WBABD_ACTOR", "unknown")
+        session_id = os.environ.get("WBABD_SESSION_ID", "")
+        details_json = json.dumps(details) if details else None
+
+        with self._get_conn() as conn:
+            conn.execute(
+                """INSERT INTO audit_events 
+                   (event_id, ts, source, actor, session_id, event_type, op_id, verb, status, step, details)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (event_id, ts, self.source, actor, session_id, event_type, op_id, verb, status, step, details_json)
+            )
 
 
 class Planner:
@@ -234,12 +222,159 @@ class Executor:
         self.store = store
         self.audit = audit
 
+    def recover_zombies(self) -> int:
+        """
+        Scans the operation store for 'running' operations. If the workspace lock
+        is not held by any process, transitions the operation to 'failed'.
+        Returns the number of recovered operations.
+        """
+        count = 0
+        ops = self.store.list_all()
+
+        for op_id, op in ops.items():
+            if op.get("status") == "running":
+                project_dir = Path(op.get("args", ["."])[0])
+                if not project_dir.is_absolute():
+                    project_dir = self.root_dir / project_dir
+                
+                lock_file = project_dir / ".wbab.lock"
+                is_stale = False
+                if not lock_file.exists():
+                    is_stale = True
+                else:
+                    try:
+                        fd = os.open(lock_file, os.O_RDWR)
+                        try:
+                            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            is_stale = True
+                            fcntl.flock(fd, fcntl.LOCK_UN)
+                        except BlockingIOError:
+                            pass
+                        finally:
+                            os.close(fd)
+                    except OSError:
+                        is_stale = True
+
+                if is_stale:
+                    op["status"] = "failed"
+                    op["finished_at"] = int(time.time())
+                    op["result"] = {"error": "System aborted (process crash detected)", "step": "system_recovery"}
+                    self.store.upsert(op_id, op)
+                    if self.audit:
+                        self.audit.emit("operation.recovered", op_id=op_id, verb=op.get("verb", ""), status="failed", details={"reason": "stale_lock"})
+                    count += 1
+        return count
+
+    def cleanup_sandbox(self, max_age_secs: int = 86400) -> int:
+        """
+        Prunes directories in agent-sandbox/ that are older than max_age_secs
+        and not associated with a currently 'running' operation.
+        """
+        count = 0
+        project_root = _get_project_root(self.root_dir)
+        sandbox_dir = project_root / "agent-sandbox"
+        if not sandbox_dir.exists():
+            return 0
+
+        active_dirs = set()
+        ops = self.store.list_all()
+        
+        for op in ops.values():
+            if op.get("status") == "running":
+                p = Path(op.get("args", ["."])[0])
+                if p.is_absolute() and str(p).startswith(str(sandbox_dir)):
+                    active_dirs.add(str(p))
+
+        now = time.time()
+        for item in sandbox_dir.iterdir():
+            if not item.is_dir():
+                continue
+            if str(item) in active_dirs:
+                continue
+            
+            if (now - item.stat().st_mtime) > max_age_secs:
+                lock_file = item / ".wbab.lock"
+                if lock_file.exists():
+                    try:
+                        fd = os.open(lock_file, os.O_RDWR)
+                        try:
+                            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                            fcntl.flock(fd, fcntl.LOCK_UN)
+                        except BlockingIOError:
+                            os.close(fd)
+                            continue
+                        finally:
+                            os.close(fd)
+                    except OSError:
+                        pass
+                
+                try:
+                    shutil.rmtree(item, ignore_errors=True)
+                    count += 1
+                except Exception:
+                    pass
+        
+        if count > 0 and self.audit:
+            self.audit.emit("system.cleanup", status="ok", details={"pruned_count": count})
+        return count
+
+    def cancel(self, op_id: str) -> Dict[str, Any]:
+        """
+        Attempts to cancel a running operation by identifying the process holding
+        the workspace lock and sending a SIGTERM.
+        """
+        op = self.store.get(op_id)
+        if not op:
+            return {"status": "error", "error": "not_found"}
+        
+        if op.get("status") != "running":
+            return {"status": "error", "error": f"cannot cancel operation in status: {op.get('status')}"}
+
+        project_dir = Path(op.get("args", ["."])[0])
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        lock_file = project_dir / ".wbab.lock"
+        if not lock_file.exists():
+            op["status"] = "failed"
+            op["finished_at"] = self._now()
+            op["result"] = {"error": "Cancelled (no workspace lock found)", "step": "cancel"}
+            self.store.upsert(op_id, op)
+            return {"status": "succeeded", "message": "Operation marked as failed (stale state detected)"}
+
+        pid = None
+        try:
+            with open(lock_file, "r") as f:
+                content = f.read().strip()
+                if content:
+                    pid = int(content)
+        except (ValueError, OSError):
+            pass
+
+        if pid:
+            try:
+                import signal
+                os.kill(pid, signal.SIGTERM)
+                time.sleep(0.1)
+            except ProcessLookupError:
+                pass
+            except Exception as exc:
+                return {"status": "error", "error": f"failed to signal process {pid}: {exc}"}
+
+        op["status"] = "failed"
+        op["finished_at"] = self._now()
+        op["result"] = {"error": "Cancelled by user", "step": "cancel"}
+        self.store.upsert(op_id, op)
+        self._audit("operation.cancelled", plan=Plan(op_id, op.get("verb",""), op.get("args",[]), [], {}), status="failed", details={"pid": pid})
+        
+        return {"status": "succeeded", "message": f"Operation cancelled (SIGTERM sent to PID {pid or 'unknown'})"}
+
     def _tool_path(self, rel: str) -> Path:
         return self.root_dir / rel
 
     def _run(self, cmd: List[str]) -> subprocess.CompletedProcess[str]:
         """Runs a command with timeout and streams output to a temporary file."""
-        timeout = float(os.environ.get("WBAB_EXECUTION_TIMEOUT_SECS", "3600")) # Default 1 hour
+        timeout = float(os.environ.get("WBAB_EXECUTION_TIMEOUT_SECS", "3600"))
         with tempfile.NamedTemporaryFile(mode="w+", delete=False, prefix="wbab-log-") as tmp:
             tmp_path = tmp.name
             try:
@@ -263,7 +398,7 @@ class Executor:
             except subprocess.TimeoutExpired:
                 return subprocess.CompletedProcess(
                     args=cmd,
-                    returncode=124, # Standard timeout exit code
+                    returncode=124,
                     stdout=f"ERROR: Execution timed out after {timeout} seconds",
                     stderr=""
                 )
@@ -275,14 +410,11 @@ class Executor:
         return int(time.time())
 
     def _get_backoff_delay(self, attempts: int) -> int:
-        """Calculates exponential backoff delay in seconds."""
         if attempts <= 1:
             return 0
-        # 2, 4, 8, 16, 32... capped at 5 minutes
         return min(300, 2 ** attempts)
 
     def _validate_outputs(self, plan: Plan) -> bool:
-        """Verifies that the expected outputs of a successful operation still exist."""
         project_dir = Path(plan.args[0]) if plan.args else Path(".")
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
@@ -292,108 +424,102 @@ class Executor:
         if plan.verb == "package":
             return (project_dir / "dist").exists()
         if plan.verb == "sign":
-            # For sign, we expect the dist/ dir to have the signed files
             return (project_dir / "dist").exists()
-        return True # Default pass for verbs like doctor, lint, test
+        return True
 
     def run(self, plan: Plan) -> Dict[str, Any]:
-        # Handle Git source provisioning if needed
-        git_mgr = None
-        temp_source_path = None
-
-        try:
-            effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
-
-            if plan.source.get("type") == "git":
-                git_mgr = GitSourceManager(self.root_dir)
-                url = plan.source["url"]
-                safe_url = sanitize_git_url(url)
-                ref = plan.source.get("ref", "")
-                self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
-                try:
-                    temp_source_path = git_mgr.prepare_source(url, ref)
-                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
-                except Exception as exc:
-                    self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
-                    return {
-                        "status": "failed",
-                        "op_id": plan.op_id,
-                        "verb": plan.verb,
-                        "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
-                    }
-
-                # Re-root the project dir into the temp checkout
-                if not plan.args or plan.args[0] == ".":
-                    effective_project_dir = temp_source_path
-                else:
-                    # Strip any leading / from the arg to append safely
-                    # Note: We do NOT use lstrip("./") because it removes leading dots from ".config"
-                    rel_path = plan.args[0].lstrip("/")
-                    effective_project_dir = temp_source_path / rel_path
-
-            if not effective_project_dir.is_absolute():
-                effective_project_dir = self.root_dir / effective_project_dir
-
-            # Step 0: Robust Cache Validation
-            existing = self.store.get(plan.op_id)
-            if existing and existing.get("status") == "succeeded":
-                # For git sources, we disable cache unless we implement artifact persistence
-                if plan.source.get("type") != "git":
-                    if self._validate_outputs(plan):
-                        self._audit("operation.cached", plan=plan, status="cached")
-                        return {
-                            "status": "cached",
-                            "op_id": plan.op_id,
-                            "verb": plan.verb,
-                            "result": existing.get("result", {}),
-                        }
-                    else:
-                        self._audit("operation.cache_invalidated", plan=plan, status="running",
-                                details={"reason": "expected outputs missing from disk"})
-
-            # Step 0.5: Workspace Locking
+        if plan.source.get("type") == "git":
+            git_mgr = GitSourceManager(self.root_dir)
+            url = plan.source["url"]
+            safe_url = sanitize_git_url(url)
+            ref = plan.source.get("ref", "")
+            self._audit("source.fetch", plan=plan, status="started", details={"url": safe_url, "ref": ref})
             try:
-                with WorkspaceLock(effective_project_dir):
-                    # Create a modified plan copy with the resolved absolute path
-                    # args[0] becomes the absolute path
-                    new_args = [str(effective_project_dir)]
-                    if len(plan.args) > 1:
-                        new_args.extend(plan.args[1:])
-                    elif not plan.args:
-                        # If originally no args, we provided the path as arg[0]
-                        pass
-
-                    runtime_plan = Plan(
-                        op_id=plan.op_id,
-                        verb=plan.verb,
-                        args=new_args,
-                        steps=plan.steps,
-                        source=plan.source
-                    )
-
-                    result = self._run_operation(runtime_plan, existing)
-
-                    if plan.source.get("type") == "git" and result["status"] == "succeeded":
-                        self._audit("source.artifacts", plan=plan, status="available",
-                                   details={"location": str(effective_project_dir)})
-
-                    return result
-
-            except RuntimeError as exc:
+                with git_mgr.prepare_source(url, ref) as temp_source_path:
+                    self._audit("source.fetch", plan=plan, status="succeeded", details={"path": str(temp_source_path)})
+                    if not plan.args or plan.args[0] == ".":
+                        effective_project_dir = temp_source_path
+                    else:
+                        rel_path = plan.args[0].lstrip("/")
+                        effective_project_dir = temp_source_path / rel_path
+                    
+                    return self._execute_in_workspace(plan, effective_project_dir)
+            except Exception as exc:
+                self._audit("source.fetch", plan=plan, status="failed", details={"error": str(exc)})
                 return {
                     "status": "failed",
                     "op_id": plan.op_id,
                     "verb": plan.verb,
-                    "result": {"error": str(exc), "step": "acquire_workspace_lock"}
+                    "result": {"error": f"Failed to fetch source: {exc}", "step": "source_fetch"}
                 }
-        finally:
-            if git_mgr and temp_source_path:
-                git_mgr.cleanup(temp_source_path)
+        else:
+            effective_project_dir = Path(plan.args[0]) if plan.args else Path(".")
+            return self._execute_in_workspace(plan, effective_project_dir)
+
+    def _execute_in_workspace(self, plan: Plan, effective_project_dir: Path) -> Dict[str, Any]:
+        project_root = _get_project_root(self.root_dir).resolve()
+        try:
+            resolved_project_dir = effective_project_dir.resolve()
+            if not str(resolved_project_dir).startswith(str(project_root)):
+                raise ValueError(f"SecurityError: Project directory '{resolved_project_dir}' is outside of project root '{project_root}'")
+        except Exception as exc:
+            return {
+                "status": "failed",
+                "op_id": plan.op_id,
+                "verb": plan.verb,
+                "result": {"error": f"Path validation failed: {exc}", "step": "path_jailing"}
+            }
+
+        effective_project_dir = resolved_project_dir
+
+        existing = self.store.get(plan.op_id)
+        if existing and existing.get("status") == "succeeded":
+            if plan.source.get("type") != "git":
+                if self._validate_outputs(plan):
+                    self._audit("operation.cached", plan=plan, status="cached")
+                    return {
+                        "status": "cached",
+                        "op_id": plan.op_id,
+                        "verb": plan.verb,
+                        "result": existing.get("result", {}),
+                    }
+                else:
+                    self._audit("operation.cache_invalidated", plan=plan, status="running",
+                            details={"reason": "expected outputs missing from disk"})
+
+        try:
+            with WorkspaceLock(effective_project_dir):
+                new_args = [str(effective_project_dir)]
+                if len(plan.args) > 1:
+                    new_args.extend(plan.args[1:])
+
+                runtime_plan = Plan(
+                    op_id=plan.op_id,
+                    verb=plan.verb,
+                    args=new_args,
+                    steps=plan.steps,
+                    source=plan.source
+                )
+
+                result = self._run_operation(runtime_plan, existing)
+
+                if plan.source.get("type") == "git" and result["status"] == "succeeded":
+                    self._audit("source.artifacts", plan=plan, status="available",
+                               details={"location": str(effective_project_dir)})
+
+                return result
+
+        except RuntimeError as exc:
+            return {
+                "status": "failed",
+                "op_id": plan.op_id,
+                "verb": plan.verb,
+                "result": {"error": str(exc), "step": "acquire_workspace_lock"}
+            }
 
     def _run_operation(self, plan: Plan, existing: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         started = self._now()
         if existing:
-            # Check throttling
             last_attempt = existing.get("last_attempt_at", 0)
             attempts = existing.get("attempts", 0)
             backoff = self._get_backoff_delay(attempts)
@@ -440,7 +566,6 @@ class Executor:
             details={"attempt": op["attempts"], "retry_count": op["retry_count"]},
         )
 
-        # Step 1: validation (idempotent; skip if previously successful)
         validate_step = "validate_inputs"
         if op["step_state"][validate_step]["status"] != "succeeded":
             self._mark_step_running(op, validate_step)
@@ -473,7 +598,6 @@ class Executor:
             self._persist(plan, op)
             self._audit("step.succeeded", plan=plan, status="succeeded", step=validate_step)
 
-        # Step 2: execute verb (retryable)
         exec_step = f"execute_{plan.verb}"
         if op["step_state"][exec_step]["status"] != "succeeded":
             self._mark_step_running(op, exec_step)
@@ -499,6 +623,7 @@ class Executor:
                 op["status"] = "failed"
                 op["finished_at"] = self._now()
                 op["result"] = {**exec_result, "step": exec_step}
+                self._rollback_artifacts(plan)
                 self._persist(plan, op)
                 self._audit(
                     "step.failed",
@@ -519,7 +644,6 @@ class Executor:
                 details={"exit_code": proc.returncode},
             )
 
-        # Step 3: record result (idempotent)
         record_step = "record_result"
         if op["step_state"][record_step]["status"] != "succeeded":
             self._mark_step_running(op, record_step)
@@ -609,96 +733,90 @@ class Executor:
         if plan.verb == "smoke" and not plan.args:
             raise ValueError("smoke requires installer path argument")
 
+    def _rollback_artifacts(self, plan: Plan) -> None:
+        """Removes output directories on failure to prevent artifact pollution."""
+        project_dir = Path(plan.args[0]) if plan.args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        for sub in ["out", "dist"]:
+            p = project_dir / sub
+            if p.exists() and p.is_dir():
+                try:
+                    shutil.rmtree(p, ignore_errors=True)
+                    if self.audit:
+                        self.audit.emit("system.rollback", op_id=plan.op_id, verb=plan.verb, details={"path": str(p)})
+                except Exception:
+                    pass
+
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
-        if verb == "lint":
-            return [str(self._tool_path("tools/winbuild-lint.sh")), *args]
-        if verb == "test":
-            return [str(self._tool_path("tools/winbuild-test.sh")), *args]
-        if verb == "build":
-            return [str(self._tool_path("tools/winbuild-build.sh")), *args]
-        if verb == "package":
-            return [str(self._tool_path("tools/package-nsis.sh")), *args]
-        if verb == "sign":
-            return [str(self._tool_path("tools/sign-dev.sh")), *args]
+        # Security: Remote RCE Guard - Never run arbitrary host scripts.
+        # Construct standard Docker run commands directly.
+        
+        tag = os.environ.get("WBAB_TAG", "v0.2.7")
+        project_dir = Path(args[0]) if args else Path(".")
+        if not project_dir.is_absolute():
+            project_dir = self.root_dir / project_dir
+        
+        # Determine the image based on the verb
+        image = ""
+        entrypoint_cmd = ""
+        
+        if verb in {"lint", "test", "build"}:
+            image = f"ghcr.io/sempersupra/winebotappbuilder-winbuild:{tag}"
+            entrypoint_cmd = f"wbab-{verb}"
+        elif verb == "package":
+            image = f"ghcr.io/sempersupra/winebotappbuilder-packager:{tag}"
+            entrypoint_cmd = "wbab-package"
+        elif verb == "sign":
+            image = f"ghcr.io/sempersupra/winebotappbuilder-signer:{tag}"
+            entrypoint_cmd = "wbab-sign"
+        elif verb == "doctor":
+            return [str(self._tool_path("tools/wbab")), "doctor"]
+        
+        if image:
+            docker_cmd = [
+                "docker", "run", "--rm",
+                "-v", f"{project_dir}:/workspace",
+                "-w", "/workspace",
+                image,
+                entrypoint_cmd
+            ]
+            if len(args) > 1:
+                docker_cmd.extend(args[1:])
+            return docker_cmd
+
         if verb == "smoke":
             if not args:
                 raise ValueError("smoke requires installer path argument")
             return [str(self._tool_path("tools/winebot-smoke.sh")), *args]
-        if verb == "doctor":
-            return [str(self._tool_path("tools/wbab")), "doctor"]
+            
         raise ValueError(f"unsupported verb: {verb}")
 
 
 def _get_project_root(root_dir: Path) -> Path:
-    # If root_dir is 'workspace', project root is parent.
-    # Otherwise, assume root_dir is already the project root or we are inside it.
     if root_dir.name == "workspace":
         return root_dir.parent
     return root_dir
 
 
 def default_store_path(root_dir: Path) -> Path:
-
-
     env_path = os.environ.get("WBABD_STORE_PATH")
-
-
     if env_path:
-
-
         return Path(env_path)
-
-
     project_root = _get_project_root(root_dir)
-
-
-    # Prefer new policy-compliant path
-
-
     new_path = project_root / "agent-sandbox" / "state" / "core-store.sqlite"
-
-
     if new_path.parent.exists() or (project_root / "agent-sandbox").exists():
-
-
         return new_path
-
-
     return root_dir / ".wbab" / "core-store.sqlite"
 
 
-
-
-
-
-
-
 def default_audit_path(root_dir: Path) -> Path:
-
-
     env_path = os.environ.get("WBABD_AUDIT_LOG_PATH")
-
-
     if env_path:
-
-
         return Path(env_path)
-
-
     project_root = _get_project_root(root_dir)
-
-
-    # Prefer new policy-compliant path
-
-
     new_path = project_root / "agent-sandbox" / "state" / "audit-log.sqlite"
-
-
     if new_path.parent.exists() or (project_root / "agent-sandbox").exists():
-
-
         return new_path
-
-
     return root_dir / ".wbab" / "audit-log.sqlite"
-

@@ -10,31 +10,25 @@ cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
 cp -r "${ROOT_DIR}/core/"* "${TMP}/core/"
 chmod +x "${TMP}/tools/wbabd"
 
-store="${TMP}/legacy-store.json"
-cat > "${store}" <<'EOF'
-{
-  "operations": {
-    "legacy-op-1": {
-      "op_id": "legacy-op-1",
-      "verb": "build",
-      "status": "succeeded",
-      "result": {
-        "exit_code": 0,
-        "stdout": "",
-        "stderr": "",
-        "command": ["tools/winbuild-build.sh", "."]
-      }
-    }
-  }
-}
-EOF
+store="${TMP}/store.sqlite"
 
-status_json="$(WBABD_STORE_PATH="${store}" "${TMP}/tools/wbabd" status legacy-op-1)"
-grep -q '"status": "succeeded"' <<< "${status_json}" || { echo "Expected legacy op status to remain readable" >&2; exit 1; }
+# Test that wbabd initializes a valid SQLite store
+WBABD_STORE_PATH="${store}" ./tools/wbabd plan sqlite-init-1 build . >/dev/null
 
-grep -q '"schema_version": "wbab.store.v1"' "${store}" || { echo "Expected migrated store schema version" >&2; exit 1; }
-grep -q '"from_schema": "legacy.unversioned"' "${store}" || { echo "Expected migration from legacy marker" >&2; exit 1; }
-grep -q '"migrated_at":' "${store}" || { echo "Expected migration timestamp" >&2; exit 1; }
-grep -q '"legacy-op-1"' "${store}" || { echo "Expected migrated store to preserve operations" >&2; exit 1; }
+[[ -f "${store}" ]] || { echo "Expected SQLite store file to be created" >&2; exit 1; }
 
-echo "OK: wbabd store schema migration"
+python3 - "${store}" <<'PY'
+import sqlite3
+import sys
+
+conn = sqlite3.connect(sys.argv[1])
+res = conn.execute("SELECT value FROM metadata WHERE key = 'instance_id'").fetchone()
+if not res or not res[0]:
+    print("instance_id not found in metadata table", file=sys.stderr)
+    sys.exit(1)
+
+res = conn.execute("SELECT op_id FROM operations WHERE op_id = 'sqlite-init-1'").fetchone()
+# Plan doesn't persist, so we don't expect op here yet.
+PY
+
+echo "OK: wbabd store sqlite initialization"

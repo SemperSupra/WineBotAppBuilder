@@ -40,7 +40,7 @@ cd WineBotAppBuilder/workspace
 ./tools/wbab run build samples/validation-app
 ```
 
-## Core Philosophy
+## Core philosophy
 - **Security First**: All toolchain containers run as non-root user `wbab`. Host-side script execution is minimized via **Remote RCE Guard**.
 - **Scalability**: SQLite-backed state and audit logs ensure consistent performance as project history grows.
 - **Resilience**: Integrated concurrency control (worker pools), path jailing, and automatic artifact rollback on failure.

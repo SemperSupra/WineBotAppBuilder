@@ -2,7 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-plan="$(WBABD_STORE_PATH=/tmp/wbabd-plan-store.json "${ROOT_DIR}/tools/wbabd" plan op-plan-1 build .)"
+TMP="$(mktemp -d)"
+trap 'rm -rf "${TMP}"' EXIT
+
+mkdir -p "${TMP}/project"
+touch "${TMP}/project/CMakeLists.txt"
+
+plan="$(WBABD_STORE_PATH="${TMP}/plan-store.sqlite" "${ROOT_DIR}/tools/wbabd" plan op-plan-1 build "${TMP}/project")"
 
 grep -q '"op_id": "op-plan-1"' <<< "${plan}" || { echo "Missing op_id in wbabd plan output" >&2; exit 1; }
 grep -q '"verb": "build"' <<< "${plan}" || { echo "Missing verb in wbabd plan output" >&2; exit 1; }

@@ -19,7 +19,7 @@ echo "artifact" > out/FakeApp.exe
 EOF
 chmod +x "${TMP}/tools/winbuild-build.sh"
 
-STORE="${TMP}/store.json"
+STORE="${TMP}/store.sqlite"
 LOG="${TMP}/run.log"
 
 api() {

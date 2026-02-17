@@ -22,7 +22,7 @@ echo "artifact" > out/FakeApp.exe
 EOF
 chmod +x "${TMP}/tools/winbuild-build.sh"
 
-store="${TMP}/store.json"
+store="${TMP}/store.sqlite"
 flag="${TMP}/fail-once.flag"
 
 set +e

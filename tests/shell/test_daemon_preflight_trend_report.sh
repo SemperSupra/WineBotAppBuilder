@@ -10,7 +10,7 @@ cp "${ROOT_DIR}/scripts/security/preflight-trend-report.sh" "${TMP}/scripts/secu
 chmod +x "${TMP}/scripts/security/preflight-trend-report.sh"
 
 counters="${TMP}/preflight-counters.json"
-audit="${TMP}/audit-log.jsonl"
+audit="${TMP}/audit-log.sqlite"
 
 cat > "${counters}" <<'EOF'
 {
@@ -22,13 +22,22 @@ cat > "${counters}" <<'EOF'
 }
 EOF
 
-cat > "${audit}" <<'EOF'
-{"event_type":"command.preflight","status":"ok","ts":"2026-02-08T00:00:00Z"}
-{"event_type":"command.preflight","status":"failed","ts":"2026-02-08T00:01:00Z"}
-{"event_type":"command.run","status":"started","ts":"2026-02-08T00:01:10Z"}
-{"event_type":"command.preflight","status":"failed","ts":"2026-02-08T00:02:00Z"}
-{"event_type":"command.preflight","status":"ok","ts":"2026-02-08T00:03:00Z"}
-EOF
+python3 - "${audit}" <<'PY'
+import sqlite3
+import sys
+conn = sqlite3.connect(sys.argv[1])
+conn.execute("CREATE TABLE audit_events (event_type TEXT, status TEXT, ts TEXT, event_id TEXT, source TEXT, actor TEXT, session_id TEXT, verb TEXT, step TEXT, details TEXT)")
+data = [
+    ("command.preflight", "ok", "2026-02-08T00:00:00Z"),
+    ("command.preflight", "failed", "2026-02-08T00:01:00Z"),
+    ("command.run", "started", "2026-02-08T00:01:10Z"),
+    ("command.preflight", "failed", "2026-02-08T00:02:00Z"),
+    ("command.preflight", "ok", "2026-02-08T00:03:00Z"),
+]
+for event_type, status, ts in data:
+    conn.execute("INSERT INTO audit_events (event_type, status, ts) VALUES (?, ?, ?)", (event_type, status, ts))
+conn.commit()
+PY
 
 json_out="$(
   WBABD_PREFLIGHT_COUNTERS_PATH="${counters}" \

@@ -13,7 +13,7 @@ chmod +x "${TMP}/tools/wbabd" "${TMP}/scripts/security/daemon-preflight.sh"
 
 status_file="${TMP}/preflight-status.json"
 counters_file="${TMP}/preflight-counters.json"
-audit_file="${TMP}/audit-log.jsonl"
+audit_file="${TMP}/audit-log.sqlite"
 
 run_attempt() {
   set +e

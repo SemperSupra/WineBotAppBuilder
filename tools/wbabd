@@ -140,24 +140,24 @@ def _preflight_trend_summary(root_dir: Path, raw_window: object = "") -> dict:
     recent_statuses: deque[str] = deque(maxlen=window)
     total_events = 0
     if audit_path.exists():
-        with audit_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    row = json.loads(line)
-                except Exception:
-                    continue
-                if not isinstance(row, dict):
-                    continue
-                if row.get("event_type") != "command.preflight":
-                    continue
-                status = str(row.get("status", "")).strip().lower()
-                if status not in {"ok", "failed"}:
-                    continue
-                total_events += 1
-                recent_statuses.append(status)
+        try:
+            import sqlite3
+            with sqlite3.connect(audit_path) as conn:
+                conn.row_factory = sqlite3.Row
+                total_events = conn.execute(
+                    "SELECT COUNT(*) FROM audit_events WHERE event_type = 'command.preflight'"
+                ).fetchone()[0]
+                
+                rows = conn.execute(
+                    "SELECT status FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts ASC LIMIT ?",
+                    (window,)
+                ).fetchall()
+                for row in rows:
+                    status = str(row["status"]).strip().lower()
+                    if status in {"ok", "failed"}:
+                        recent_statuses.append(status)
+        except Exception:
+            pass
 
     recent_ok = sum(1 for s in recent_statuses if s == "ok")
     recent_failed = sum(1 for s in recent_statuses if s == "failed")

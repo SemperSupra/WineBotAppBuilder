@@ -1,9 +1,11 @@
 import shutil
 import subprocess
 import tempfile
+import os
 from urllib.parse import urlparse, urlunparse
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Generator
+from contextlib import contextmanager
 
 def sanitize_git_url(url: str) -> str:
     """Redacts credentials from a git URL."""
@@ -25,11 +27,24 @@ class GitSourceManager:
     def __init__(self, root_dir: Optional[Path] = None):
         self.root_dir = root_dir or Path.cwd()
 
-    def prepare_source(self, url: str, ref: str) -> Path:
+    @contextmanager
+    def prepare_source(self, url: str, ref: str) -> Generator[Path, None, None]:
         """
         Clones a git repository to a directory under agent-sandbox/ and checks out the specified ref.
-        Returns the path to the directory.
+        Yields the path to the directory and ensures cleanup on exit.
         """
+        timeout = int(os.environ.get("WBAB_GIT_TIMEOUT_SECS", "300"))
+
+        # Security: Whitelist check
+        allowed_domains = os.environ.get("WBAB_GIT_ALLOWED_DOMAINS", "").split(",")
+        allowed_domains = [d.strip() for d in allowed_domains if d.strip()]
+        
+        if allowed_domains:
+            parsed = urlparse(url)
+            domain = parsed.hostname or ""
+            if domain not in allowed_domains:
+                raise ValueError(f"SecurityError: Domain '{domain}' is not in WBAB_GIT_ALLOWED_DOMAINS")
+
         # Create a secure temporary directory under agent-sandbox/
         sandbox_dir = self.root_dir / "agent-sandbox"
         sandbox_dir.mkdir(parents=True, exist_ok=True)
@@ -38,12 +53,12 @@ class GitSourceManager:
 
         try:
             # Clone the repository
-            # Use -- to separate options from arguments (url, destination)
             subprocess.run(
                 ["git", "clone", "--quiet", "--", url, str(temp_dir)],
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=timeout
             )
 
             # Checkout the specific ref
@@ -55,7 +70,8 @@ class GitSourceManager:
                     cwd=temp_dir,
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
+                    timeout=timeout
                 )
 
             # Update submodules recursively
@@ -64,20 +80,20 @@ class GitSourceManager:
                 cwd=temp_dir,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=timeout
             )
 
-            return temp_dir
+            yield temp_dir
 
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"Git operation timed out after {timeout} seconds") from e
         except subprocess.CalledProcessError as e:
-            # If any git command fails, clean up and re-raise
-            self.cleanup(temp_dir)
-            # We don't sanitize stderr here because git usually doesn't output the password.
-            # But the caller might log the error.
             raise RuntimeError(f"Git operation failed: {e.stderr.strip()}") from e
         except Exception as e:
-            self.cleanup(temp_dir)
             raise RuntimeError(f"Failed to prepare git source: {e}") from e
+        finally:
+            self.cleanup(temp_dir)
 
     def cleanup(self, path: Path):
         """Removes the temporary directory."""

@@ -85,7 +85,7 @@ def load_preflight_events(path: Path, window: int) -> list[dict]:
         with sqlite3.connect(path) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                "SELECT status, ts FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts DESC LIMIT ?",
+                "SELECT status, ts FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts ASC LIMIT ?",
                 (window,)
             ).fetchall()
             for row in rows:

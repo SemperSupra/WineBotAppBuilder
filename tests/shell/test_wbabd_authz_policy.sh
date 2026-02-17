@@ -29,7 +29,7 @@ cat > "${policy}" <<'EOF'
 }
 EOF
 
-store="${TMP}/store.json"
+store="${TMP}/store.sqlite"
 
 # allowed principal can plan/run/status
 plan_ok="$(

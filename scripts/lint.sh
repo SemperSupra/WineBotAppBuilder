@@ -3,7 +3,6 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_ROOT="$(cd "${ROOT_DIR}/.." && pwd)"
 
 LINTER_IMAGE="${WBAB_LINTER_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-linter}"
 LINTER_TAG="${WBAB_TAG:-v0.2.0}"
@@ -12,7 +11,7 @@ LINTER_DOCKERFILE="${ROOT_DIR}/tools/linter/Dockerfile"
 
 # If we are in the project root (containing agent-sandbox, etc), mount it.
 # Otherwise mount the ROOT_DIR (workspace).
-MOUNT_DIR="${PROJECT_ROOT}"
+MOUNT_DIR="${ROOT_DIR}"
 
 IMAGE_TO_RUN="${LINTER_IMAGE}:${LINTER_TAG}"
 

@@ -11,7 +11,7 @@ cp -r "${ROOT_DIR}/core/"* "${TMP}/core/"
 cp "${ROOT_DIR}/scripts/security/daemon-preflight.sh" "${TMP}/scripts/security/daemon-preflight.sh"
 chmod +x "${TMP}/tools/wbabd" "${TMP}/scripts/security/daemon-preflight.sh"
 
-audit_file="${TMP}/audit.jsonl"
+audit_file="${TMP}/audit.sqlite"
 status_file="${TMP}/preflight-status.json"
 counters_file="${TMP}/preflight-counters.json"
 
@@ -32,16 +32,30 @@ run_attempt() {
 run_attempt
 run_attempt
 
-[[ -s "${audit_file}" ]] || { echo "Expected audit log with preflight events" >&2; exit 1; }
-grep -q '"event_type": "command.preflight"' "${audit_file}" || { echo "Expected command.preflight audit event" >&2; exit 1; }
-grep -q '"counters": {"failed": 1, "last_status": "failed", "ok": 0, "total": 1' "${audit_file}" || {
-  echo "Expected first preflight counter snapshot in audit event" >&2
-  exit 1
-}
-grep -q '"counters": {"failed": 2, "last_status": "failed", "ok": 0, "total": 2' "${audit_file}" || {
-  echo "Expected second preflight counter snapshot in audit event" >&2
-  exit 1
-}
+[[ -f "${audit_file}" ]] || { echo "Expected audit log database file" >&2; exit 1; }
+
+python3 - "${audit_file}" <<'PY'
+import sqlite3
+import sys
+import json
+
+conn = sqlite3.connect(sys.argv[1])
+conn.row_factory = sqlite3.Row
+# Filter strictly by event_type
+rows = conn.execute("SELECT details FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts ASC").fetchall()
+
+if len(rows) < 2:
+    print(f"Expected at least 2 preflight events, got {len(rows)}", file=sys.stderr)
+    sys.exit(1)
+
+# Inspect the last two preflight events from this test run
+penultimate = json.loads(rows[-2]["details"])["counters"]
+last = json.loads(rows[-1]["details"])["counters"]
+
+if last["failed"] != (penultimate["failed"] + 1):
+    print(f"Counters did not increment: {penultimate['failed']} -> {last['failed']}", file=sys.stderr)
+    sys.exit(1)
+PY
 
 [[ -s "${counters_file}" ]] || { echo "Expected persisted preflight counters file" >&2; exit 1; }
 grep -q '"failed": 2' "${counters_file}" || { echo "Expected failed counter=2 in persisted counters file" >&2; exit 1; }

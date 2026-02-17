@@ -2,10 +2,10 @@
   "$schema": "http://cyclonedx.org/schema/bom-1.6.schema.json",
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
-  "serialNumber": "urn:uuid:609ee6fb-90ae-4b9f-8562-87721e1aa48c",
+  "serialNumber": "urn:uuid:df222d62-acee-4b44-9b0a-ed73ef9fa418",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-02-17T15:38:41+00:00",
+    "timestamp": "2026-02-17T17:44:11+00:00",
     "tools": {
       "components": [
         {
@@ -17,7 +17,7 @@
       ]
     },
     "component": {
-      "bom-ref": "d7476b5a-b19f-4be6-a7a5-267a24222a17",
+      "bom-ref": "5cd2df11-c54e-4921-8dfb-d85b287f8666",
       "type": "application",
       "name": ".",
       "properties": [
@@ -30,7 +30,7 @@
   },
   "components": [
     {
-      "bom-ref": "50585dec-1e10-495e-bf2d-4e8977f07167",
+      "bom-ref": "74089cbc-2a95-4458-af56-271a58734894",
       "type": "application",
       "name": "requirements.txt",
       "properties": [
@@ -60,15 +60,15 @@
   ],
   "dependencies": [
     {
-      "ref": "50585dec-1e10-495e-bf2d-4e8977f07167",
+      "ref": "5cd2df11-c54e-4921-8dfb-d85b287f8666",
       "dependsOn": [
-        "pkg:pypi/zeroconf@0.148.0"
+        "74089cbc-2a95-4458-af56-271a58734894"
       ]
     },
     {
-      "ref": "d7476b5a-b19f-4be6-a7a5-267a24222a17",
+      "ref": "74089cbc-2a95-4458-af56-271a58734894",
       "dependsOn": [
-        "50585dec-1e10-495e-bf2d-4e8977f07167"
+        "pkg:pypi/zeroconf@0.148.0"
       ]
     },
     {
