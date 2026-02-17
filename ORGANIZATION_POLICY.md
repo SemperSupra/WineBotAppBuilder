@@ -14,7 +14,7 @@ The project root is organized into the following top-level directories:
 ### 2. `agent-sandbox/` (Agent Managed - Sandbox)
 - **Purpose:** Persistent and transient state used by AI agents and the WBAB toolchain that does NOT require elevated privileges.
 - **Contents:**
-  - `state/`: Idempotent operation store (`core-store.json`), audit logs (`audit-log.jsonl`), and preflight diagnostics.
+  - `state/`: Idempotent operation store (`core-store.sqlite`), audit logs (`audit-log.sqlite`), and preflight diagnostics.
   - `artifacts/`: Build artifacts produced by the toolchain.
   - `out/`: Compilation outputs.
   - `dist/`: Packaging and signing outputs.

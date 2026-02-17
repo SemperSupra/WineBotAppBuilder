@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 COUNTERS_PATH="${WBABD_PREFLIGHT_COUNTERS_PATH:-${ROOT_DIR}/../agent-sandbox/state/preflight-counters.json}"
-AUDIT_PATH="${WBABD_AUDIT_LOG_PATH:-${ROOT_DIR}/../agent-sandbox/state/audit-log.jsonl}"
+AUDIT_PATH="${WBABD_AUDIT_LOG_PATH:-${ROOT_DIR}/../agent-sandbox/state/audit-log.sqlite}"
 WINDOW="${WBABD_PREFLIGHT_AUDIT_WINDOW:-50}"
 FORMAT="text"
 
@@ -76,32 +76,40 @@ def load_counters(path: Path) -> dict:
         updated_at = 0
     return {"ok": ok, "failed": failed, "total": total, "last_status": last_status, "updated_at": updated_at}
 
-def load_preflight_events(path: Path) -> list[dict]:
+def load_preflight_events(path: Path, window: int) -> list[dict]:
     events: list[dict] = []
     if not path.exists():
         return events
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except Exception:
-                continue
-            if not isinstance(row, dict):
-                continue
-            if row.get("event_type") != "command.preflight":
-                continue
-            status = str(row.get("status", "")).strip().lower()
-            if status not in {"ok", "failed"}:
-                continue
-            events.append({"status": status, "ts": row.get("ts", "")})
+    try:
+        import sqlite3
+        with sqlite3.connect(path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT status, ts FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts DESC LIMIT ?",
+                (window,)
+            ).fetchall()
+            for row in rows:
+                status = str(row["status"]).strip().lower()
+                if status in {"ok", "failed"}:
+                    events.append({"status": status, "ts": row["ts"]})
+    except Exception:
+        pass
     return events
 
+def get_total_preflight_count(path: Path) -> int:
+    if not path.exists(): return 0
+    try:
+        import sqlite3
+        with sqlite3.connect(path) as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM audit_events WHERE event_type = 'command.preflight'"
+            ).fetchone()[0]
+    except Exception:
+        return 0
+
 counters = load_counters(counters_path)
-events = load_preflight_events(audit_path)
-recent = events[-window:]
+recent = load_preflight_events(audit_path, window)
+total_audit_events = get_total_preflight_count(audit_path)
 recent_ok = sum(1 for e in recent if e["status"] == "ok")
 recent_failed = sum(1 for e in recent if e["status"] == "failed")
 recent_total = recent_ok + recent_failed
@@ -131,7 +139,7 @@ out = {
         "failed": recent_failed,
         "success_rate_pct": recent_rate,
     },
-    "audit_events_total_seen": len(events),
+    "audit_events_total_seen": total_audit_events,
 }
 
 if fmt == "json":

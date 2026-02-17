@@ -49,7 +49,8 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_INSTALLER_VALIDATION_ARTIFACT_DIR` (default `artifacts/e2e-real/installer-validation`): destination for installer checksum/manifest evidence
 - `WBAB_SMOKE_SESSION_ID` (default UTC timestamp): logical smoke session identifier used in artifact paths
 - `WBAB_ARTIFACTS_DIR` (default `artifacts/winebot/<session-id>`): output directory for smoke logs/evidence capture
-- `WBABD_AUDIT_LOG_PATH` (default `.wbab/audit-log.jsonl`): append-only JSONL audit event stream path
+- `WBABD_AUDIT_LOG_PATH` (default `agent-sandbox/state/audit-log.sqlite`): SQLite audit event database path
+- `WBABD_STORE_PATH` (default `agent-sandbox/state/core-store.sqlite`): SQLite operation store path
 - `WBABD_ACTOR` (default `unknown`): actor identity stamped on every audit event (user/agent/system)
 - `WBABD_SESSION_ID` (default empty): correlation identifier for related command sequences
 - `WBABD_AUTH_MODE` (default `token` for `wbabd serve`, `off` otherwise): daemon auth mode (`off` or `token`)
@@ -62,22 +63,24 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBABD_TLS_CLIENT_CA_FILE` (optional): client CA bundle path enabling mTLS (`CERT_REQUIRED`)
 - `WBABD_HTTP_MAX_BODY_BYTES` (default `1048576`): maximum HTTP request body size in bytes
 - `WBABD_HTTP_REQUEST_TIMEOUT_SECS` (default `15`): per-request socket timeout seconds
-- `WBABD_PKI_DIR` (default `.wbab/daemon-pki`): internal PKI helper output directory for CA/server/client material
-- `WBABD_PREFLIGHT_STATUS_PATH` (default `.wbab/preflight-status.json`): persisted startup preflight diagnostics summary path
-- `WBABD_PREFLIGHT_COUNTERS_PATH` (default `.wbab/preflight-counters.json`): persisted startup preflight pass/fail counters path
+- `WBABD_PKI_DIR` (default `agent-privileged/daemon-pki`): internal PKI helper output directory for CA/server/client material
+- `WBABD_PREFLIGHT_STATUS_PATH` (default `agent-sandbox/state/preflight-status.json`): persisted startup preflight diagnostics summary path
+- `WBABD_PREFLIGHT_COUNTERS_PATH` (default `agent-sandbox/state/preflight-counters.json`): persisted startup preflight pass/fail counters path
 - `WBABD_PREFLIGHT_AUDIT_WINDOW` (default `50`): recent `command.preflight` audit events to include in trend report helper/daemon trend API output
 - `WBABD_POLICY_PREFLIGHT_TREND_GATE` (default `0`): opt-in policy gate toggle for threshold validation against `preflight_trend` output
 
 ## Output layout (target)
-- `out/` : build outputs (per arch/config)
-- `dist/`: deliverables (installers, signed artifacts)
-- `artifacts/` : test evidence and logs
-  - `artifacts/winebot/<session-id>/...`
-- `.wbab/core-store.json` : idempotent operation store for `wbabd` core baseline
-- `.wbab/audit-log.jsonl` : append-only command/event audit stream for cross-agent traceability
-- `.wbab/daemon-pki/` : internal PKI assets (`ca/server/client` cert+key) produced by helper script
-- `.wbab/preflight-status.json` : last preflight diagnostics summary (`ok`/`failed`, checked_at, source, message/error)
-- `.wbab/preflight-counters.json` : cumulative startup preflight counters (`ok`, `failed`, `total`, `last_status`, `updated_at`)
+- `workspace/` : project source and scripts
+- `agent-sandbox/` : non-elevated state and artifacts
+  - `agent-sandbox/out/` : build outputs
+  - `agent-sandbox/dist/`: deliverables (installers, signed artifacts)
+  - `agent-sandbox/artifacts/` : test evidence and logs
+  - `agent-sandbox/state/core-store.sqlite` : SQLite operation store
+  - `agent-sandbox/state/audit-log.sqlite` : SQLite audit stream
+- `agent-privileged/` : sensitive configuration and PKI
+  - `agent-privileged/signing/` : code signing material
+  - `agent-privileged/daemon-pki/` : internal daemon PKI assets
+- `manual/` : human-managed documentation and archives
 - `scripts/security/preflight-trend-report.sh` : summarize cumulative preflight counters + recent `command.preflight` audit window
 - `scripts/security/preflight-trend-threshold-check.sh` : evaluate operator thresholds against `preflight_trend` output
 - `tools/winbuild/build-fixture.sh` : fixture Win32/Win64 build implementation path for containerized `wbab build`

@@ -1,41 +1,38 @@
-# WBAB Project State - 2026-02-11
+# WBAB Project State - 2026-02-16
 
 ## Overview
-The WineBotAppBuilder (WBAB) project is a production-ready containerized toolchain for Windows development on Linux. It features a modular architecture, formal modeling for idempotency, and automated release pipelines.
+The WineBotAppBuilder (WBAB) project has transitioned from a bring-up scaffold to a production-hardened, scalable, and secure containerized toolchain for Windows development.
 
-## Current Milestone: v0.2.0 - Bring-up Scaffold Complete
-The bring-up phase is complete. The system is verified via a multi-component sample app and a formally modeled idempotent daemon.
+## Current Milestone: v0.2.5 - Production Hardening Complete
+The system is now fully policy-compliant, featuring SQLite persistence, non-root container security, and automated daemon discovery.
 
 ### Key Components
-- **`tools/wbab`**: Unified CLI for build, package, sign, and smoke test dispatch.
-- **`core/wbab_core.py`**: Idempotent operation engine with file locking (`fcntl`) for concurrency safety.
-- **`formal/tla/`**: Formal specification of the daemon's state machine and idempotency invariants.
-- **`samples/validation-app/`**: Advanced sample app (DLL + CLI + GUI) used for E2E verification.
-- **`.github/workflows/release.yml`**: Full CI/CD automation triggering on tag push (`v*`).
+- **`tools/wbab`**: Now supports **Auto-Discovery** via mDNS, discovery caching, and a first-class `run` command.
+- **`tools/wbabd`**: An async daemon with **Worker Pool Control** (asyncio semaphores) and SQLite-backed state.
+- **`core/wbab_core.py`**: Refactored for **SQLite Persistence**, **Strict Path Jailing**, and **Remote RCE Guard** (direct Docker execution).
+- **`agent-sandbox/`**: Standardized directory for all agent-managed state and build artifacts.
+- **`.github/workflows/`**: Optimized with **GHA Layer Caching** and **Path-Based Filtering**.
 
 ### Infrastructure
-- **GHCR Images**: 
-  - `ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.2.0`
-  - `ghcr.io/sempersupra/winebotappbuilder-packager:v0.2.0`
-  - `ghcr.io/sempersupra/winebotappbuilder-signer:v0.2.0`
-- **Release Assets**: `ValidationSetup.exe` (sample app installer).
+- **GHCR Images (v0.2.5)**: 
+  - `ghcr.io/sempersupra/winebotappbuilder-winbuild`
+  - `ghcr.io/sempersupra/winebotappbuilder-packager`
+  - `ghcr.io/sempersupra/winebotappbuilder-signer`
+  - `ghcr.io/sempersupra/winebotappbuilder-linter` (Newly published)
+- **Security**: All containers run as non-root user `wbab`.
 
 ## Achievements
-- [x] Consolidate release automation into a single `release.yml` workflow.
-- [x] Fix Hadolint and Shellcheck issues across the entire codebase (latest: SC2015 fix in policy tests).
-- [x] Successfully verify the toolchain via real-world CMake/NSIS builds in CI.
-- [x] Implement robust file locking in the daemon core to prevent state corruption.
-- [x] Automate SBOM generation and vulnerability scanning in the release pipeline.
-- [x] Full local verification suite pass (2026-02-13).
-- [x] Audit for Correctness, Performance, and Security completed.
-- [x] Integrated `lint` and `test` verbs into the unified `wbab` toolchain.
+- [x] **Correctness**: Implemented zombie operation recovery and atomic state updates via SQLite.
+- [x] **Reliability**: Added Git operation timeouts and automatic artifact rollback on failure.
+- [x] **Performance**: Implemented SQLite storage, discovery caching, and Docker layer caching in CI.
+- [x] **Security**: Enforced strict path jailing, non-root containers, and Remote RCE guards.
+- [x] **UX**: Implemented `wbab init` Project Wizard and CLI auto-discovery.
 
 ## Active Constraints
-- **Pull-first Policy**: `tools/wbab` defaults to official GHCR images.
-- **Security**: No local state or secrets in the repository.
-- **Quality**: 100% pass rate on Lint, Unit, Contract, Policy, and E2E tests required for release.
+- **Policy Enforcement**: Strict adherence to `ORGANIZATION_POLICY.md` (4-tier structure) and `LINT_POLICY.md`.
+- **Security**: No host-side script execution for core verbs; all work happens inside restricted containers.
 
 ## Next Steps
-- [ ] Wait for community feedback on the `v0.2.0` milestone.
-- [ ] Explore integration with additional signing providers (beyond dev-cert).
-- [ ] Implement advanced preflight trend analysis for long-term health monitoring.
+- [ ] **Issue #7**: Implement Web-Based Operations Dashboard (Monitoring + Logs + Artifacts).
+- [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
+- [ ] **Security**: Enable TLS by default for daemon communication.

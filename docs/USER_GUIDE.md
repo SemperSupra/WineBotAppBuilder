@@ -7,59 +7,76 @@ This guide explains how to use the **WineBotAppBuilder** toolchain to build, pac
 - Docker and Docker Compose v2 installed.
 - (Optional) `osslsigncode` and `openssl` for local signing operations.
 
-## 2. Environment Setup
+## 2. Starting a New Project
 
-Initialize the toolchain and dependencies:
-
-```bash
-./scripts/bootstrap-submodule.sh
-./tools/wbab doctor
-```
-
-## 3. Linting and Static Analysis
-
-Code quality should be verified before building. The toolchain provides a `lint` command:
+Initialize a policy-compliant 4-tier project structure:
 
 ```bash
-export WBAB_LINT_CMD="wbab-lint-real"
-./tools/wbab lint myapp/
+./tools/wbab init "My Awesome App" myapp/
+cd myapp/
 ```
 
-By default, the `winbuild` toolchain includes `clang-tidy` for C++ analysis.
+This creates:
+- `workspace/`: Your source code and scripts.
+- `agent-sandbox/`: Build artifacts and logs.
+- `agent-privileged/`: PKI material.
+- `manual/`: Documentation.
 
-## 4. Building an Application
+## 3. The Unified Workflow
 
-The toolchain supports **CMake** and **Makefile** projects. Place your source in a directory (e.g., `myapp/`) and run:
+WBAB recommends running all operations through the daemon-backed `run` verb. This ensures idempotency, concurrency control, and audit logging.
+
+### Auto-Discovery
+If a daemon is running on your network, the CLI will find it automatically:
 
 ```bash
-# Enable local image builds if you haven't published images to GHCR
-export WBAB_ALLOW_LOCAL_BUILD=1
-export WBAB_BUILD_CMD="wbab-build-real"
+# Start the daemon on a build server
+export WBABD_AUTH_MODE=off
+./tools/wbabd serve --port 8787
 
-./tools/wbab build myapp/
+# On your dev machine
+./tools/wbab run build workspace/
 ```
 
-Outputs will be placed in `myapp/out/`.
+## 4. Linting and Static Analysis
 
-## 5. Unit Testing
-
-Execute unit tests within the build container. If your tests are Windows binaries, the toolchain uses **Wine** to run them:
+Code quality should be verified before building.
 
 ```bash
-export WBAB_TEST_CMD="wbab-test-real"
-./tools/wbab test myapp/
+# Local verification
+./workspace/scripts/lint.sh
+
+# Or via the daemon
+./tools/wbab run lint workspace/
 ```
 
-## 6. Packaging an Installer
+## 5. Building an Application
 
-Create an NSIS script (`installer.nsi`) in your project directory. Then package it:
+The toolchain supports **CMake** and **Makefile** projects.
 
 ```bash
-export WBAB_PACKAGE_CMD="wbab-package-real installer.nsi"
-./tools/wbab package myapp/
+./tools/wbab run build workspace/
 ```
 
-The installer will be created in `myapp/dist/`.
+Outputs will be placed in `agent-sandbox/out/`.
+
+## 6. Unit Testing
+
+Execute unit tests within the build container.
+
+```bash
+./tools/wbab run test workspace/
+```
+
+## 7. Packaging an Installer
+
+Create an NSIS script (`installer.nsi`) in your project directory.
+
+```bash
+./tools/wbab run package workspace/
+```
+
+The installer will be created in `agent-sandbox/dist/`.
 
 ## 7. Code Signing
 

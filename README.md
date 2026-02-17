@@ -28,36 +28,23 @@ cd WineBotAppBuilder/workspace
 ./scripts/bootstrap-submodule.sh
 ```
 
-### 3. Usage (The WBAB Pipeline)
+### 3. Initialize a New Project
 ```bash
-# Lint the project
-./tools/wbab lint samples/validation-app
-
-# Build your application
-./tools/wbab build samples/validation-app
-
-# Run unit tests
-./tools/wbab test samples/validation-app
-
-# Package into an installer
-./tools/wbab package samples/validation-app
-
-# Sign the installer (auto-generates dev cert if needed)
-./tools/wbab sign samples/validation-app
-
-# Smoke test the installer in WineBot
-./tools/wbab smoke samples/validation-app
-
-# Discover remote WBAB nodes on your network
-./tools/wbab discover
+# Initialize a new policy-compliant project
+./tools/wbab init "My Awesome App" /path/to/my-project
 ```
 
-## Core philosophy
-- The **core** must be usable concurrently by CLI/GUI/API without interference.
-- Idempotency is required for all operations, regardless of activation path.
-- UI-specific behavior lives outside core.
-- Default policy: **prefer GHCR** (pull-first), do not build locally unless explicitly enabled.
-- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5`** over local build.
+### 4. Usage (The WBAB Pipeline)
+```bash
+# Run operations through the daemon (with auto-discovery)
+./tools/wbab run build samples/validation-app
+```
+
+## Core Philosophy
+- **Security First**: All toolchain containers run as non-root user `wbab`. Host-side script execution is minimized via **Remote RCE Guard**.
+- **Scalability**: SQLite-backed state and audit logs ensure consistent performance as project history grows.
+- **Resilience**: Integrated concurrency control (worker pools), path jailing, and automatic artifact rollback on failure.
+- **Zero-Config**: Local network auto-discovery (mDNS) allows the CLI to find and use build nodes automatically.
 
 ## Documentation for Humans
 - **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
