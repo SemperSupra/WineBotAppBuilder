@@ -33,11 +33,11 @@ if [[ "${WBAB_SIGN_USE_DEV_CERT:-0}" == "1" ]]; then
     mkdir -p "$(dirname "${SIGN_OUTPUT}")"
     
     echo "wbab-sign: Signing ${SIGN_INPUT} with dev cert..."
-    osslsigncode sign 
-        -pkcs12 "${DEV_CERT_DIR}/dev.pfx" 
-        -readpass "${DEV_CERT_DIR}/dev.pfx.pass" 
-        -h sha256 
-        -in "${SIGN_INPUT}" 
+    osslsigncode sign \
+        -pkcs12 "${DEV_CERT_DIR}/dev.pfx" \
+        -readpass "${DEV_CERT_DIR}/dev.pfx.pass" \
+        -h sha256 \
+        -in "${SIGN_INPUT}" \
         -out "${SIGN_OUTPUT}"
     
     echo "wbab-sign: SUCCESS (signed with dev cert)"
