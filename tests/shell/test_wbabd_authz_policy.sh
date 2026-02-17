@@ -9,6 +9,7 @@ mkdir -p "${TMP}/tools" "${TMP}/core"
 cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
 cp -r "${ROOT_DIR}/core/"* "${TMP}/core/"
 chmod +x "${TMP}/tools/wbabd"
+export WBAB_MOCK_EXECUTION=1
 
 cat > "${TMP}/tools/winbuild-build.sh" <<'EOF'
 #!/usr/bin/env bash

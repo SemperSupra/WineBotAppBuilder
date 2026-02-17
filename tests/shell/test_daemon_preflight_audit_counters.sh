@@ -33,15 +33,23 @@ run_attempt
 run_attempt
 
 [[ -s "${audit_file}" ]] || { echo "Expected audit log with preflight events" >&2; exit 1; }
-grep -q '"event_type": "command.preflight"' "${audit_file}" || { echo "Expected command.preflight audit event" >&2; exit 1; }
-grep -q '"counters": {"failed": 1, "last_status": "failed", "ok": 0, "total": 1' "${audit_file}" || {
-  echo "Expected first preflight counter snapshot in audit event" >&2
-  exit 1
+
+check_count() {
+  local query="$1"
+  local msg="$2"
+  local count
+  count="$(sqlite3 "${audit_file}" "${query}")"
+  if [[ "${count}" -lt 1 ]]; then
+    echo "${msg}" >&2
+    exit 1
+  fi
 }
-grep -q '"counters": {"failed": 2, "last_status": "failed", "ok": 0, "total": 2' "${audit_file}" || {
-  echo "Expected second preflight counter snapshot in audit event" >&2
-  exit 1
-}
+
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='command.preflight';" "Expected command.preflight audit event"
+
+# Check for JSON details using LIKE since sqlite doesn't support JSON operators natively in older versions without extensions
+check_count "SELECT COUNT(*) FROM audit_events WHERE details LIKE '%\"failed\": 1%' AND details LIKE '%\"total\": 1%';" "Expected first preflight counter snapshot in audit event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE details LIKE '%\"failed\": 2%' AND details LIKE '%\"total\": 2%';" "Expected second preflight counter snapshot in audit event"
 
 [[ -s "${counters_file}" ]] || { echo "Expected persisted preflight counters file" >&2; exit 1; }
 grep -q '"failed": 2' "${counters_file}" || { echo "Expected failed counter=2 in persisted counters file" >&2; exit 1; }

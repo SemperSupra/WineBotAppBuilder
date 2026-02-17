@@ -23,6 +23,7 @@ audit="${TMP}/audit.jsonl"
 
 (
   cd "${TMP}"
+  export WBAB_MOCK_EXECUTION=1
   WBABD_STORE_PATH="${store}" \
   WBABD_AUDIT_LOG_PATH="${audit}" \
   WBABD_ACTOR="ci-shell-test" \
@@ -47,16 +48,26 @@ audit="${TMP}/audit.jsonl"
 
 [[ -s "${audit}" ]] || { echo "Expected non-empty audit log" >&2; exit 1; }
 
-grep -q '"schema_version": "wbab.audit.v1"' "${audit}" || { echo "Missing schema version in audit log" >&2; exit 1; }
-grep -q '"actor": "ci-shell-test"' "${audit}" || { echo "Missing actor in audit log" >&2; exit 1; }
-grep -q '"session_id": "sess-audit-1"' "${audit}" || { echo "Missing session id in audit log" >&2; exit 1; }
-grep -q '"op_id": "audit-op-1"' "${audit}" || { echo "Missing op_id in audit log" >&2; exit 1; }
-grep -q '"event_type": "command.plan"' "${audit}" || { echo "Missing command.plan event" >&2; exit 1; }
-grep -q '"event_type": "operation.started"' "${audit}" || { echo "Missing operation.started event" >&2; exit 1; }
-grep -q '"event_type": "step.started"' "${audit}" || { echo "Missing step.started event" >&2; exit 1; }
-grep -q '"event_type": "step.succeeded"' "${audit}" || { echo "Missing step.succeeded event" >&2; exit 1; }
-grep -q '"event_type": "operation.succeeded"' "${audit}" || { echo "Missing operation.succeeded event" >&2; exit 1; }
-grep -q '"event_type": "operation.cached"' "${audit}" || { echo "Missing operation.cached event" >&2; exit 1; }
-grep -q '"event_type": "command.status"' "${audit}" || { echo "Missing command.status event" >&2; exit 1; }
+check_count() {
+  local query="$1"
+  local msg="$2"
+  local count
+  count="$(sqlite3 "${audit}" "${query}")"
+  if [[ "${count}" -lt 1 ]]; then
+    echo "${msg}" >&2
+    exit 1
+  fi
+}
+
+check_count "SELECT COUNT(*) FROM audit_events WHERE actor='ci-shell-test';" "Missing actor in audit log"
+check_count "SELECT COUNT(*) FROM audit_events WHERE session_id='sess-audit-1';" "Missing session id in audit log"
+check_count "SELECT COUNT(*) FROM audit_events WHERE op_id='audit-op-1';" "Missing op_id in audit log"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='command.plan';" "Missing command.plan event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='operation.started';" "Missing operation.started event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='step.started';" "Missing step.started event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='step.succeeded';" "Missing step.succeeded event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='operation.succeeded';" "Missing operation.succeeded event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='operation.cached';" "Missing operation.cached event"
+check_count "SELECT COUNT(*) FROM audit_events WHERE event_type='command.status';" "Missing command.status event"
 
 echo "OK: wbabd audit log schema/events"

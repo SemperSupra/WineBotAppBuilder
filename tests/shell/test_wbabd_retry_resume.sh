@@ -28,7 +28,7 @@ flag="${TMP}/fail-once.flag"
 set +e
 (
   cd "${TMP}"
-  WBABD_STORE_PATH="${store}" WBABD_FAIL_ONCE_FLAG="${flag}" ./tools/wbabd run op-retry-1 build .
+  WBAB_MOCK_EXECUTION=1 WBABD_STORE_PATH="${store}" WBABD_FAIL_ONCE_FLAG="${flag}" ./tools/wbabd run op-retry-1 build .
 )
 rc1=$?
 set -e
@@ -36,7 +36,7 @@ set -e
 
 (
   cd "${TMP}"
-  WBABD_STORE_PATH="${store}" WBABD_FAIL_ONCE_FLAG="${flag}" ./tools/wbabd run op-retry-1 build .
+  WBAB_MOCK_EXECUTION=1 WBABD_STORE_PATH="${store}" WBABD_FAIL_ONCE_FLAG="${flag}" ./tools/wbabd run op-retry-1 build .
 )
 
 status_json="$(WBABD_STORE_PATH="${store}" "${TMP}/tools/wbabd" status op-retry-1)"

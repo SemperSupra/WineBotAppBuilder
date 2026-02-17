@@ -26,7 +26,7 @@ api() {
   local req="$1"
   (
     cd "${TMP}"
-    WBABD_STORE_PATH="${STORE}" WBABD_MOCK_LOG="${LOG}" ./tools/wbabd api "${req}"
+    WBAB_MOCK_EXECUTION=1 WBABD_STORE_PATH="${STORE}" WBABD_MOCK_LOG="${LOG}" ./tools/wbabd api "${req}"
   )
 }
 

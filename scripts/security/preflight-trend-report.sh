@@ -80,23 +80,39 @@ def load_preflight_events(path: Path) -> list[dict]:
     events: list[dict] = []
     if not path.exists():
         return events
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                row = json.loads(line)
-            except Exception:
-                continue
-            if not isinstance(row, dict):
-                continue
-            if row.get("event_type") != "command.preflight":
-                continue
-            status = str(row.get("status", "")).strip().lower()
-            if status not in {"ok", "failed"}:
-                continue
-            events.append({"status": status, "ts": row.get("ts", "")})
+    try:
+        import sqlite3
+        with sqlite3.connect(path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT status, ts FROM audit_events WHERE event_type = 'command.preflight' ORDER BY ts ASC"
+            ).fetchall()
+            for row in rows:
+                status = str(row["status"]).strip().lower()
+                if status in {"ok", "failed"}:
+                    events.append({"status": status, "ts": row["ts"]})
+    except Exception:
+        # Fallback to JSONL if sqlite fails (legacy support)
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except Exception:
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    if row.get("event_type") != "command.preflight":
+                        continue
+                    status = str(row.get("status", "")).strip().lower()
+                    if status not in {"ok", "failed"}:
+                        continue
+                    events.append({"status": status, "ts": row.get("ts", "")})
+        except Exception:
+            pass
     return events
 
 counters = load_counters(counters_path)

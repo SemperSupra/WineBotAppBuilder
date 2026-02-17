@@ -24,8 +24,8 @@ log="${TMP}/run.log"
 
 (
   cd "${TMP}"
-  WBABD_STORE_PATH="${store}" WBABD_MOCK_LOG="${log}" ./tools/wbabd run op-123 build .
-  WBABD_STORE_PATH="${store}" WBABD_MOCK_LOG="${log}" ./tools/wbabd run op-123 build .
+  WBAB_MOCK_EXECUTION=1 WBABD_STORE_PATH="${store}" WBABD_MOCK_LOG="${log}" ./tools/wbabd run op-123 build .
+  WBAB_MOCK_EXECUTION=1 WBABD_STORE_PATH="${store}" WBABD_MOCK_LOG="${log}" ./tools/wbabd run op-123 build .
 )
 
 count="$(wc -l < "${log}" | tr -d ' ')"

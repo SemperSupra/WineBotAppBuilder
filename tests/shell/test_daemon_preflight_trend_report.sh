@@ -22,12 +22,17 @@ cat > "${counters}" <<'EOF'
 }
 EOF
 
-cat > "${audit}" <<'EOF'
-{"event_type":"command.preflight","status":"ok","ts":"2026-02-08T00:00:00Z"}
-{"event_type":"command.preflight","status":"failed","ts":"2026-02-08T00:01:00Z"}
-{"event_type":"command.run","status":"started","ts":"2026-02-08T00:01:10Z"}
-{"event_type":"command.preflight","status":"failed","ts":"2026-02-08T00:02:00Z"}
-{"event_type":"command.preflight","status":"ok","ts":"2026-02-08T00:03:00Z"}
+sqlite3 "${audit}" <<'EOF'
+CREATE TABLE audit_events (
+  event_type TEXT,
+  status TEXT,
+  ts TEXT
+);
+INSERT INTO audit_events (event_type, status, ts) VALUES ('command.preflight', 'ok', '2026-02-08T00:00:00Z');
+INSERT INTO audit_events (event_type, status, ts) VALUES ('command.preflight', 'failed', '2026-02-08T00:01:00Z');
+INSERT INTO audit_events (event_type, status, ts) VALUES ('command.run', 'started', '2026-02-08T00:01:10Z');
+INSERT INTO audit_events (event_type, status, ts) VALUES ('command.preflight', 'failed', '2026-02-08T00:02:00Z');
+INSERT INTO audit_events (event_type, status, ts) VALUES ('command.preflight', 'ok', '2026-02-08T00:03:00Z');
 EOF
 
 json_out="$(

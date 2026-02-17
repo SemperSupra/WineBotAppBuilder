@@ -763,7 +763,22 @@ class Executor:
     def _command_for(self, verb: str, args: List[str]) -> List[str]:
         # Security: Remote RCE Guard - Never run arbitrary host scripts.
         # Construct standard Docker run commands directly.
+        # EXCEPTION: Allow mocking for unit tests via WBAB_MOCK_EXECUTION=1
         
+        if os.environ.get("WBAB_MOCK_EXECUTION") == "1":
+            mock_map = {
+                "build": "tools/winbuild-build.sh",
+                "package": "tools/package-nsis.sh",
+                "sign": "tools/sign-dev.sh",
+                "lint": "tools/winbuild-lint.sh",
+                "test": "tools/winbuild-test.sh",
+                "smoke": "tools/winebot-smoke.sh",
+            }
+            if verb in mock_map:
+                script = self._tool_path(mock_map[verb])
+                # Mock scripts in tests expect standard args
+                return [str(script), *args]
+
         tag = os.environ.get("WBAB_TAG", "v0.2.0")
         project_dir = Path(args[0]) if args else Path(".")
         if not project_dir.is_absolute():
