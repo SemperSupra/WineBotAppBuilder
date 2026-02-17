@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Optional env:
 #   WBAB_PACKAGER_IMAGE (default ghcr.io/sempersupra/winebotappbuilder-packager)
-#   WBAB_TAG (default v0.3.1)
+#   WBAB_TAG (default v0.3.2)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_PACKAGER_DOCKERFILE (default tools/packaging/Dockerfile)
 #   WBAB_PACKAGE_CMD (default runs fixture packaging script in tools/packaging/)
@@ -24,7 +24,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR_ABS="$(cd "${PROJECT_DIR}" && pwd)"
 
 PACKAGER_IMAGE="${WBAB_PACKAGER_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-packager}"
-PACKAGER_TAG="${WBAB_TAG:-v0.3.1}"
+PACKAGER_TAG="${WBAB_TAG:-v0.3.2}"
 ALLOW_LOCAL_BUILD="${WBAB_ALLOW_LOCAL_BUILD:-0}"
 PACKAGER_DOCKERFILE="${WBAB_PACKAGER_DOCKERFILE:-${ROOT_DIR}/tools/packaging/Dockerfile}"
 LOCAL_IMAGE="${PACKAGER_IMAGE}:local"

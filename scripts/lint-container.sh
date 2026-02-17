@@ -30,10 +30,15 @@ else
 fi
 
 echo "[lint] ruff (project-owned python)"
-ruff check --exclude tools/WineBot .
+# Use internal cache to avoid permission issues with host-mounted workspace
+ruff check --cache-dir /tmp/ruff_cache --exclude tools/WineBot .
+
+echo "[lint] ruff format (coding style)"
+ruff format --check --cache-dir /tmp/ruff_cache --exclude tools/WineBot .
 
 echo "[lint] mypy (static type checking)"
-mypy --ignore-missing-imports --explicit-package-bases --exclude tools/WineBot .
+# Use internal cache to avoid permission issues
+mypy --cache-dir /tmp/mypy_cache --ignore-missing-imports --explicit-package-bases --check-untyped-defs --warn-unused-ignores --exclude tools/WineBot .
 
 echo "[lint] hadolint (project-owned dockerfiles)"
 # shellcheck disable=SC2086
@@ -47,8 +52,12 @@ echo "[lint] trivy (project-owned security fs scan)"
 trivy fs --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --skip-dirs tools/WineBot .
 
 echo "[lint] trivy (SBOM generation)"
-mkdir -p /workspace/agent-sandbox/state
-trivy fs --format cyclonedx --output /workspace/agent-sandbox/state/sbom-repo.cdx.json --skip-dirs tools/WineBot .
+# Only attempt if writable (agent-sandbox might be root-owned in some CI setups)
+if [[ -w "/workspace/agent-sandbox/state" ]]; then
+  trivy fs --format cyclonedx --output /workspace/agent-sandbox/state/sbom-repo.cdx.json --skip-dirs tools/WineBot .
+else
+  echo "WARN: agent-sandbox/state not writable, skipping SBOM generation"
+fi
 
 echo "[lint] executable bits"
 # Ensure key scripts are executable

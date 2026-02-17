@@ -61,12 +61,12 @@ echo "fixture-installer" > "${TMP}/project/dist/FakeSetup.exe"
 
 log="$(cat "${MOCK_LOG}")"
 
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.1" || { echo "Missing build pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.1" || { echo "Missing package pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.1" || { echo "Missing sign pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.1" || { echo "Missing build container run action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.1" || { echo "Missing package container run action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.1" || { echo "Missing sign container run action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.2" || { echo "Missing build pull-first action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.2" || { echo "Missing package pull-first action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.2" || { echo "Missing sign pull-first action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.2" || { echo "Missing build container run action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.2" || { echo "Missing package container run action" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.2" || { echo "Missing sign container run action" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER compose .* pull" || { echo "Missing WineBot compose pull action" >&2; exit 1; }
 
 echo "OK: e2e mocked pipeline (build->package->sign->smoke) passed"
