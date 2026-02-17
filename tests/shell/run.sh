@@ -3,6 +3,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 echo "[shell-unit] running..."
+export WBAB_MOCK_EXECUTOR=1
 "${ROOT_DIR}/tests/shell/test_pull_first.sh"
 "${ROOT_DIR}/tests/shell/test_build_pull_first.sh"
 "${ROOT_DIR}/tests/shell/test_build_local_opt_in.sh"
