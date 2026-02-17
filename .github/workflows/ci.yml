@@ -26,7 +26,7 @@ jobs:
 
       - name: Run containerized lint
         run: |
-          export WBAB_ALLOW_LOCAL_BUILD=0
+          export WBAB_ALLOW_LOCAL_BUILD=1
           chmod +x scripts/lint.sh scripts/lint-container.sh
           ./scripts/lint.sh
 
@@ -39,6 +39,7 @@ jobs:
       - name: Run shell unit tests (mocked)
         run: |
           chmod +x tests/shell/run.sh
+          export WBAB_MOCK_EXECUTION=1
           ./tests/shell/run.sh
 
   contract:
