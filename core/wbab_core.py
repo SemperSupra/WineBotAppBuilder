@@ -764,7 +764,7 @@ class Executor:
         # Security: Remote RCE Guard - Never run arbitrary host scripts.
         # Construct standard Docker run commands directly.
         
-        tag = os.environ.get("WBAB_TAG", "v0.2.4")
+        tag = os.environ.get("WBAB_TAG", "v0.2.0")
         project_dir = Path(args[0]) if args else Path(".")
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
