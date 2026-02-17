@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 LINTER_IMAGE="${WBAB_LINTER_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-linter}"
-LINTER_TAG="${WBAB_TAG:-v0.2.0}"
+LINTER_TAG="${WBAB_TAG:-v0.3.0}"
 ALLOW_LOCAL_BUILD="${WBAB_ALLOW_LOCAL_BUILD:-0}"
 LINTER_DOCKERFILE="${ROOT_DIR}/tools/linter/Dockerfile"
 

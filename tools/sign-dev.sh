@@ -9,7 +9,7 @@ set -euo pipefail
 #
 # Optional env:
 #   WBAB_SIGNER_IMAGE (default ghcr.io/sempersupra/winebotappbuilder-signer)
-#   WBAB_TAG (default v0.2.0)
+#   WBAB_TAG (default v0.3.0)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_SIGNER_DOCKERFILE (default tools/signing/Dockerfile)
 #   WBAB_SIGN_CMD (default creates a fixture output in dist/)
@@ -30,7 +30,7 @@ PROJECT_DIR_ABS="$(cd "${PROJECT_DIR}" && pwd)"
 DEV_CERT_SCRIPT="${ROOT_DIR}/scripts/signing/dev-cert.sh"
 
 SIGNER_IMAGE="${WBAB_SIGNER_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-signer}"
-SIGNER_TAG="${WBAB_TAG:-v0.2.0}"
+SIGNER_TAG="${WBAB_TAG:-v0.3.0}"
 ALLOW_LOCAL_BUILD="${WBAB_ALLOW_LOCAL_BUILD:-0}"
 SIGNER_DOCKERFILE="${WBAB_SIGNER_DOCKERFILE:-${ROOT_DIR}/tools/signing/Dockerfile}"
 LOCAL_IMAGE="${SIGNER_IMAGE}:local"

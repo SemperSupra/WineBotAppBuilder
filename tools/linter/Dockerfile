@@ -34,8 +34,11 @@ RUN curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/d
     && dpkg -i /tmp/trivy.deb \
     && rm /tmp/trivy.deb
 
+# Security: Run as non-root user
+RUN groupadd -g 1000 wbab && useradd -u 1000 -g wbab -m -s /bin/bash wbab
 WORKDIR /workspace
-COPY scripts/lint-container.sh /usr/local/bin/wbab-lint-internal
-RUN chmod +x /usr/local/bin/wbab-lint-internal
+RUN chown wbab:wbab /workspace
+USER wbab
 
+COPY scripts/lint-container.sh /usr/local/bin/wbab-lint-internal
 ENTRYPOINT ["/usr/local/bin/wbab-lint-internal"]

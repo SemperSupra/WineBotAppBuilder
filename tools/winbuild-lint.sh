@@ -14,7 +14,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR_ABS="$(cd "${PROJECT_DIR}" && pwd)"
 
 TOOLCHAIN_IMAGE="${WBAB_TOOLCHAIN_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-winbuild}"
-TOOLCHAIN_TAG="${WBAB_TAG:-v0.2.0}"
+TOOLCHAIN_TAG="${WBAB_TAG:-v0.3.0}"
 ALLOW_LOCAL_BUILD="${WBAB_ALLOW_LOCAL_BUILD:-0}"
 TOOLCHAIN_DOCKERFILE="${WBAB_TOOLCHAIN_DOCKERFILE:-${ROOT_DIR}/tools/winbuild/Dockerfile}"
 LOCAL_IMAGE="${TOOLCHAIN_IMAGE}:local"

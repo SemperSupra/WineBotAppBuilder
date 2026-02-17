@@ -27,5 +27,10 @@ RUN chmod +x /usr/local/bin/wbab-build-real /usr/local/bin/wbab-build-fixture /u
     && ln -s /usr/local/bin/wbab-lint-real /usr/local/bin/wbab-lint \
     && ln -s /usr/local/bin/wbab-test-real /usr/local/bin/wbab-test
 
+# Security: Run as non-root user
+RUN groupadd -g 1000 wbab && useradd -u 1000 -g wbab -m -s /bin/bash wbab
 WORKDIR /workspace
+RUN chown wbab:wbab /workspace
+USER wbab
+
 CMD ["bash"]
