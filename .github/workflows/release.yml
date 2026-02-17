@@ -25,10 +25,12 @@ jobs:
         run: |
           export WBAB_ALLOW_LOCAL_BUILD=1
           
+          # Set executable bits before changing ownership
+          chmod +x scripts/lint.sh scripts/lint-container.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
+          
           # Fix permissions for non-root containers (UID 1000)
           sudo chown -R 1000:1000 .
           
-          chmod +x scripts/lint.sh scripts/lint-container.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
           ./scripts/lint.sh
           ./tests/shell/run.sh
           ./tests/contract/run.sh
