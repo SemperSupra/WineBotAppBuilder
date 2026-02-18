@@ -35,7 +35,7 @@ export WBABD_AUTH_MODE=off
 ./tools/wbabd serve --port 8787
 
 # On your dev machine
-./tools/wbab run build workspace/
+./tools/wbab build workspace/
 ```
 
 ## 4. Linting and Static Analysis
@@ -47,7 +47,7 @@ Code quality should be verified before building.
 ./workspace/scripts/lint.sh
 
 # Or via the daemon
-./tools/wbab run lint workspace/
+./tools/wbab lint workspace/
 ```
 
 ## 5. Building an Application
@@ -55,7 +55,7 @@ Code quality should be verified before building.
 The toolchain supports **CMake** and **Makefile** projects.
 
 ```bash
-./tools/wbab run build workspace/
+./tools/wbab build workspace/
 ```
 
 Outputs will be placed in `agent-sandbox/out/`.
@@ -65,7 +65,7 @@ Outputs will be placed in `agent-sandbox/out/`.
 Execute unit tests within the build container.
 
 ```bash
-./tools/wbab run test workspace/
+./tools/wbab test workspace/
 ```
 
 ## 7. Packaging an Installer
@@ -73,7 +73,7 @@ Execute unit tests within the build container.
 Create an NSIS script (`installer.nsi`) in your project directory.
 
 ```bash
-./tools/wbab run package workspace/
+./tools/wbab package workspace/
 ```
 
 The installer will be created in `agent-sandbox/dist/`.
@@ -93,7 +93,7 @@ export WBAB_SIGN_INPUT="dist/MySetup.exe"
 export WBAB_SIGN_OUTPUT="dist/MySetup-signed.exe"
 export WBAB_SIGN_CMD="osslsigncode sign -pkcs12 agent-privileged/signing/pki/codesign.pfx -readpass agent-privileged/signing/pki/codesign.pfx.pass -h sha256 -in ${WBAB_SIGN_INPUT} -out ${WBAB_SIGN_OUTPUT}"
 
-./tools/wbab sign myapp/
+./tools/wbab sign .
 ```
 
 ## 8. Smoke Testing with WineBot
