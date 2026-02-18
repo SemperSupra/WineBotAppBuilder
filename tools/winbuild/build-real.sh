@@ -22,7 +22,8 @@ if [[ -f "CMakeLists.txt" ]]; then
 
   cmake --build .
   
-  # Ensure out/ exists and copy artifacts
+  # Ensure out/ exists and copy artifacts (clean first to avoid permission issues)
+  rm -rf "../out"
   mkdir -p "../out"
   echo "wbab-build: Copying .exe and .dll files to out/..."
   find . -name "*.exe" -exec cp -f {} "../out/" \;

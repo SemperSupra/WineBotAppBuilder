@@ -7,6 +7,7 @@ set -euo pipefail
 # Allow override of the NSI script path
 NSI_SCRIPT="${1:-}"
 
+rm -rf dist
 mkdir -p dist
 
 if [[ -n "${NSI_SCRIPT}" ]]; then
