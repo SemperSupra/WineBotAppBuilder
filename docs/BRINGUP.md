@@ -64,7 +64,7 @@ This scaffold includes a placeholder directory at `tools/WineBot/` so paths are 
 - Toolchain build execution: pull-first runner (`tools/winbuild-build.sh`) via `wbab build`.
 - Installer packaging execution: pull-first runner (`tools/package-nsis.sh`) via `wbab package`.
 - Artifact signing execution: pull-first runner (`tools/sign-dev.sh`) via `wbab sign`.
-- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5`** over local build.
+- WineBot execution: **prefer official `ghcr.io/mark-e-deyoung/winebot:latest`** over local build.
 
 See:
 - `AGENTS.md`
