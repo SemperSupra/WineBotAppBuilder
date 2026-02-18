@@ -41,7 +41,7 @@ cd WineBotAppBuilder/workspace
 ./tools/wbab package samples/validation-app
 ```
 
-## Core Philosophy & Reliability
+## Core philosophy & Reliability
 - **Non-Root Runtime**: All toolchain containers run as restricted user `wbab` (UID 1000).
 - **SQLite Storage**: All operation state and audit logs use SQLite for persistence and atomicity.
 - **Remote RCE Guard**: The core engine directly constructs `docker run` commands; host-side scripts are not used for execution in production.
