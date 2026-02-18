@@ -123,14 +123,18 @@ jobs:
           ./tools/wbab build samples/validation-app
           ./tools/wbab package samples/validation-app
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Try to create the release, but ignore failure if it already exists
           gh release create "${{ github.ref_name }}" \
             --title "Release ${{ github.ref_name }}" \
-            --generate-notes \
-            samples/validation-app/dist/ValidationSetup.exe
+            --generate-notes || true
+          
+          # Upload the installer, overwriting if it already exists
+          gh release upload "${{ github.ref_name }}" \
+            samples/validation-app/dist/ValidationSetup.exe --clobber
 
       - name: Upload publish metadata
         if: always()
