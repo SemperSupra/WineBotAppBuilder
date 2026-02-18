@@ -37,14 +37,15 @@ cd WineBotAppBuilder/workspace
 ### 4. Usage (The WBAB Pipeline)
 ```bash
 # Run operations through the daemon (with auto-discovery)
-./tools/wbab run build samples/validation-app
+./tools/wbab build samples/validation-app
+./tools/wbab package samples/validation-app
 ```
 
-## Core philosophy
-- **Security First**: All toolchain containers run as non-root user `wbab`. Host-side script execution is minimized via **Remote RCE Guard**.
-- **Scalability**: SQLite-backed state and audit logs ensure consistent performance as project history grows.
-- **Resilience**: Integrated concurrency control (worker pools), path jailing, and automatic artifact rollback on failure.
-- **Zero-Config**: Local network auto-discovery (mDNS) allows the CLI to find and use build nodes automatically.
+## Security & Reliability
+- **Non-Root Runtime**: All toolchain containers run as restricted user `wbab` (UID 1000).
+- **SQLite Storage**: All operation state and audit logs use SQLite for persistence and atomicity.
+- **Remote RCE Guard**: The core engine directly constructs `docker run` commands; host-side scripts are not used for execution in production.
+- **Workspace Isolation**: Built-in cleanup of `out/` and `dist/` directories ensures no stale artifacts pollute new builds.
 
 ## Documentation for Humans
 - **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
