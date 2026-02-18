@@ -5,8 +5,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
-mkdir -p "${TMP}/tools/WineBot/compose" "${TMP}/tools/WineBot/apps" "${TMP}/project/dist"
+mkdir -p "${TMP}/tools/WineBot/compose" "${TMP}/tools/WineBot/apps" "${TMP}/project/dist" "${TMP}/core"
 cp "${ROOT_DIR}/tools/wbab" "${TMP}/tools/wbab"
+cp "${ROOT_DIR}/tools/wbabd" "${TMP}/tools/wbabd"
+cp -r "${ROOT_DIR}/core/"* "${TMP}/core/"
 cp "${ROOT_DIR}/tools/winbuild-build.sh" "${TMP}/tools/winbuild-build.sh"
 cp "${ROOT_DIR}/tools/package-nsis.sh" "${TMP}/tools/package-nsis.sh"
 cp "${ROOT_DIR}/tools/sign-dev.sh" "${TMP}/tools/sign-dev.sh"
@@ -61,12 +63,15 @@ echo "fixture-installer" > "${TMP}/project/dist/FakeSetup.exe"
 
 log="$(cat "${MOCK_LOG}")"
 
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.6" || { echo "Missing build pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.6" || { echo "Missing package pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.6" || { echo "Missing sign pull-first action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-winbuild:v0.3.6" || { echo "Missing build container run action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-packager:v0.3.6" || { echo "Missing package container run action" >&2; exit 1; }
-echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-signer:v0.3.6" || { echo "Missing sign container run action" >&2; exit 1; }
+# Dynamically get current tag from core/wbab_core.py
+CURRENT_TAG="$(grep 'tag =' "${ROOT_DIR}/core/wbab_core.py" | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+')"
+
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-winbuild:${CURRENT_TAG}" || { echo "Missing build pull-first action for ${CURRENT_TAG}" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-packager:${CURRENT_TAG}" || { echo "Missing package pull-first action for ${CURRENT_TAG}" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER pull ghcr.io/sempersupra/winebotappbuilder-signer:${CURRENT_TAG}" || { echo "Missing sign pull-first action for ${CURRENT_TAG}" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-winbuild:${CURRENT_TAG}" || { echo "Missing build container run action for ${CURRENT_TAG}" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-packager:${CURRENT_TAG}" || { echo "Missing package container run action for ${CURRENT_TAG}" >&2; exit 1; }
+echo "${log}" | grep -q "DOCKER run .*ghcr.io/sempersupra/winebotappbuilder-signer:${CURRENT_TAG}" || { echo "Missing sign container run action for ${CURRENT_TAG}" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER compose .* pull" || { echo "Missing WineBot compose pull action" >&2; exit 1; }
 
 echo "OK: e2e mocked pipeline (build->package->sign->smoke) passed"

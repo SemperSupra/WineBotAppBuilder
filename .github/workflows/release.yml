@@ -29,7 +29,7 @@ jobs:
           chmod +x scripts/lint.sh scripts/lint-container.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
           
           # Fix permissions for non-root containers (UID 1000)
-          chmod -R a+w .
+          sudo chmod -R a+w .
           
           ./scripts/lint.sh
           ./tests/shell/run.sh
@@ -109,7 +109,7 @@ jobs:
           export WBAB_PACKAGE_CMD="wbab-package-real"
           
           # Fix permissions for non-root containers (UID 1000)
-          chmod -R a+w .
+          sudo chmod -R a+w .
           
           OWNER_LC="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
           docker build -t "ghcr.io/${OWNER_LC}/winebotappbuilder-winbuild:local" -f tools/winbuild/Dockerfile .

@@ -22,12 +22,11 @@ if [[ -f "CMakeLists.txt" ]]; then
 
   cmake --build .
   
-  # Copy artifacts to out/ if they exist (heuristic)
-  if [[ -d "../out" ]]; then
-    echo "wbab-build: Copying .exe and .dll files to out/..."
-    find . -name "*.exe" -exec cp {} "../out/" \;
-    find . -name "*.dll" -exec cp {} "../out/" \;
-  fi
+  # Ensure out/ exists and copy artifacts
+  mkdir -p "../out"
+  echo "wbab-build: Copying .exe and .dll files to out/..."
+  find . -name "*.exe" -exec cp -f {} "../out/" \;
+  find . -name "*.dll" -exec cp -f {} "../out/" \;
 
 elif [[ -f "Makefile" ]]; then
   echo "wbab-build: Found Makefile, building with Make..."
