@@ -910,7 +910,7 @@ class Executor:
                 return [str(self._tool_path("tools/wbab")), "doctor"]
 
         # Security: Remote RCE Guard - Never run arbitrary host scripts in production.
-        tag = os.environ.get("WBAB_TAG", "v0.3.6")
+        tag = os.environ.get("WBAB_TAG", "v0.3.7")
         project_dir = Path(args[0]) if args else Path(".")
         if not project_dir.is_absolute():
             project_dir = self.root_dir / project_dir
