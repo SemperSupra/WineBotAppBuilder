@@ -22,4 +22,4 @@
 - [ ] **Item 9: Docker Socket Protection**: Remove `docker.sock` mount from linter; transition to host-side image verification. (Medium Priority)
 
 ## Test Engineering
-- [ ] **Item 10: Modernize Shell Unit Tests**: Transition `tests/shell/` from host-side mocking to containerized verification to support Remote RCE Guard. (High Priority)
+- [x] **Item 10: Modernize Shell Unit Tests**: Transitioned `tests/shell/` and `tests/e2e/` to support containerized verification and Remote RCE Guard.
