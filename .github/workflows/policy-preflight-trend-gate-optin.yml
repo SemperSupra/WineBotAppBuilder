@@ -33,7 +33,7 @@ jobs:
       WBABD_PREFLIGHT_TREND_MAX_RECENT_FAILED: ${{ github.event.inputs.max_recent_failed || '0' }}
       WBABD_PREFLIGHT_TREND_REQUIRE_EVENTS: ${{ github.event.inputs.require_events || '1' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: false
       - name: Run policy suite with preflight trend gate enabled
