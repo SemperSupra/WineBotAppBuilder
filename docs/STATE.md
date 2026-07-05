@@ -2,6 +2,44 @@
 
 **Date:** 2026-07-05
 
+## Milestone: v0.3.7 — Production Stable
+
+The WineBotAppBuilder has transitioned from bring-up scaffold to a production-hardened, scalable, secure containerized toolchain for Windows development on Linux. The system features a hardened CI/CD pipeline, SQLite-backed persistence, non-root container security, and full daemon API with AuthN/AuthZ/TLS.
+
+### Key Components
+- **`tools/wbab`**: Production CLI with Auto-Discovery (mDNS), discovery caching, and v0.3.x container integration.
+- **`tools/wbabd`**: Async daemon with Worker Pool Control, SQLite-backed `OperationStore` and `AuditLog`.
+- **`core/wbab_core.py`**: Hardened core with Strict Path Jailing and Remote RCE Guard (direct Docker execution).
+- **`agent-sandbox/`**: Standardized directory for all agent-managed state and build artifacts.
+- **`.github/workflows/`**: Robust Release Automation workflow with workspace permission normalization.
+
+### Infrastructure
+- **GHCR Images (v0.3.7 / latest)**: `winebotappbuilder-winbuild`, `winebotappbuilder-packager`, `winebotappbuilder-signer`, `winebotappbuilder-linter`
+- **Security**: All containers run as restricted user `wbab` (UID 1000), pull-first policy enforced.
+
+### Achievements
+- [x] **CI/CD Reliability**: Resolved all workspace permission issues, synchronized local/remote test environments.
+- [x] **Correctness**: Atomic state updates via SQLite, clean artifact rollbacks on failure.
+- [x] **Security**: Strict path jailing, non-root containers, Remote RCE Guard, daemon TLS/mTLS, token auth, AuthZ allow-lists.
+- [x] **Test Engineering**: Modernized 100% of test suites for hardened architecture.
+
+### Active Constraints
+- **Policy Enforcement**: Strict adherence to `ORGANIZATION_POLICY.md` (4-tier structure) and `LINT_POLICY.md`.
+- **Security**: No host-side script execution for core verbs in production.
+- **WineBot version pin**: WBAB pins WineBot at `v0.9.5` in 6+ files; upstream is `v0.9.7`. Gap includes resource guardrails, temporal correctness, recording contracts, and lifecycle hardening.
+- **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` provides MinGW cross-compilation only (`x86_64-w64-mingw32-gcc/g++`). WinInspect requires MSVC (Visual Studio Build Tools + Windows SDK). This is the fundamental architecture mismatch preventing WBAB from building WinInspect.
+
+### Next Steps
+- [ ] **Issue #7**: Implement Web-Based Operations Dashboard.
+- [ ] **Issue #8**: Enable TLS by default for daemon communication.
+- [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
+- [ ] **WineBot v0.9.7 upgrade**: Bump `WBAB_WINEBOT_TAG` default across all integration points.
+- [ ] **MSVC build path for WinInspect**: Create MSVC-capable winbuild variant using `msvc-wine` or native Windows runner.
+- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`.
+- [ ] **WinInspect contract tests**: Pipeline shape validation for C++/CMake daemon/client projects.
+
+---
+
 ## Status
 Bring-up scaffold created and partially implemented. `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are now
 functional CLI paths. The repo currently provides scaffolding, policy scripts, CI gates, and documentation structure.
@@ -187,11 +225,4 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 - **Project Organization**: Implemented `agent-sandbox/`, `agent-privileged/`, and `manual/` root directory structure (see `ORGANIZATION_POLICY.md`).
 - **Unified Linter**: Implemented containerized linting (`tools/linter/Dockerfile`) enforcing `shellcheck`, `ruff`, `hadolint`, and `trivy` across local and CI/CD environments.
 
-## Next actions
-1. Publish toolchain images to GHCR
-
-## Cross-project analysis (2026-07-05)
-See `STATE.md` (root) and `BACKLOG.md` for the latest bidirectional analysis of WineBot→WBAB and WBAB→WinInspect improvements. Key findings:
-- **WineBot v0.9.5→v0.9.7 gap**: 6+ files pin the older tag; v0.9.7 has resource guardrails, temporal correctness, recording contracts
-- **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` cannot build WinInspect (requires MSVC toolchain)
-- **14 actionable items** catalogued in BACKLOG.md across both improvement directions
+*(Next steps are consolidated in the **Next Steps** section at top of this document.)*

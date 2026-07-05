@@ -8,6 +8,7 @@ samples/*/dist/
 
 # wbab runtime state and secrets
 .wbab/
+.wbab.lock
 
 # local tools
 .env
