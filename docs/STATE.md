@@ -29,14 +29,29 @@ The WineBotAppBuilder has transitioned from bring-up scaffold to a production-ha
 - **WineBot version pin**: WBAB pins WineBot at `v0.9.5` in 6+ files; upstream is `v0.9.7`. Gap includes resource guardrails, temporal correctness, recording contracts, and lifecycle hardening.
 - **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` provides MinGW cross-compilation only (`x86_64-w64-mingw32-gcc/g++`). WinInspect requires MSVC (Visual Studio Build Tools + Windows SDK). This is the fundamental architecture mismatch preventing WBAB from building WinInspect.
 
+### Completed This Session (2026-07-05)
+- [x] **Testing audit**: Comprehensive audit of all test infrastructure, local/CI parity, standards, and conformance.
+- [x] **Python tests in CI**: New `python-unit` job with code coverage reporting.
+- [x] **SBOM validation**: CycloneDX CLI added to linter, SBOM validated after generation.
+- [x] **Image vulnerability scanning**: Trivy image scan after each publish in release workflow.
+- [x] **Build output contract test**: `tests/contract/test_build_output_structure.sh` validates output paths.
+- [x] **CLI UX contract tests**: `tests/contract/test_cli_ux.sh` validates help text, errors, verb detection.
+- [x] **Dependabot**: Auto-tracking pip, docker, GitHub Actions weekly.
+- [x] **Repo hygiene**: Consolidated STATE docs, removed stale files + branches + tags + releases.
+- [x] **Default branch**: Renamed `master` → `main` (local + remote).
+- [x] **Bidirectional analysis**: Documented WineBot→WBAB and WBAB→WinInspect improvement recommendations.
+
 ### Next Steps
 - [ ] **Issue #7**: Implement Web-Based Operations Dashboard.
 - [ ] **Issue #8**: Enable TLS by default for daemon communication.
 - [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
 - [ ] **WineBot v0.9.7 upgrade**: Bump `WBAB_WINEBOT_TAG` default across all integration points.
 - [ ] **MSVC build path for WinInspect**: Create MSVC-capable winbuild variant using `msvc-wine` or native Windows runner.
-- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`.
-- [ ] **WinInspect contract tests**: Pipeline shape validation for C++/CMake daemon/client projects.
+- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`. (Deferred — blocked on MSVC decision)
+- [ ] **WinInspect contract tests**: Pipeline shape validation for C++/CMake daemon/client projects. (Deferred)
+- [ ] **Issue #20**: SLSA build provenance attestation.
+- [ ] **Issue #21**: Local CI workflow testing (act/nektos).
+- [ ] **Issue #22**: Property-based testing (Hypothesis).
 
 ---
 
