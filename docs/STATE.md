@@ -27,7 +27,7 @@ The WineBotAppBuilder has transitioned from bring-up scaffold to a production-ha
 - **Policy Enforcement**: Strict adherence to `ORGANIZATION_POLICY.md` (4-tier structure) and `LINT_POLICY.md`.
 - **Security**: No host-side script execution for core verbs in production.
 - **WineBot version pin**: WBAB pins WineBot at `v0.9.5` in 6+ files; upstream is `v0.9.7`. Gap includes resource guardrails, temporal correctness, recording contracts, and lifecycle hardening.
-- **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` provides MinGW cross-compilation only (`x86_64-w64-mingw32-gcc/g++`). WinInspect requires MSVC (Visual Studio Build Tools + Windows SDK). This is the fundamental architecture mismatch preventing WBAB from building WinInspect.
+- **MSVC/MinGW re-evaluation needed**: WinInspect v0.4.0 (released 2026-07-05) includes Wine 10.0 compatibility fixes, proven Wine daemon stability (60s+ uptime both platforms), and Wine tests on all PRs. This significantly reduces the assumed MSVC dependency — MinGW cross-compilation may now be sufficient for building and CI-validating WinInspect within WBAB's existing toolchain.
 
 ### Completed This Session (2026-07-05)
 - [x] **Testing audit**: Comprehensive audit of all test infrastructure, local/CI parity, standards, and conformance.
@@ -40,14 +40,15 @@ The WineBotAppBuilder has transitioned from bring-up scaffold to a production-ha
 - [x] **Repo hygiene**: Consolidated STATE docs, removed stale files + branches + tags + releases.
 - [x] **Default branch**: Renamed `master` → `main` (local + remote).
 - [x] **Bidirectional analysis**: Documented WineBot→WBAB and WBAB→WinInspect improvement recommendations.
+- [x] **WinInspect v0.4.0 discovery**: Identified that the latest WinInspect release (today) includes Wine compatibility fixes that change the MSVC/MinGW blocker assessment.
 
 ### Next Steps
 - [ ] **Issue #7**: Implement Web-Based Operations Dashboard.
 - [ ] **Issue #8**: Enable TLS by default for daemon communication.
 - [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
 - [ ] **WineBot v0.9.7 upgrade**: Bump `WBAB_WINEBOT_TAG` default across all integration points.
-- [ ] **MSVC build path for WinInspect**: Create MSVC-capable winbuild variant using `msvc-wine` or native Windows runner.
-- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`. (Deferred — blocked on MSVC decision)
+- [ ] **WinInspect v0.4.0 integration assessment**: Test building WinInspect v0.4.0 with WBAB's existing MinGW toolchain (Wine compatibility fixes may enable this without MSVC).
+- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`. (Deferred — blocked on WinInspect build verification)
 - [ ] **WinInspect contract tests**: Pipeline shape validation for C++/CMake daemon/client projects. (Deferred)
 - [ ] **Issue #20**: SLSA build provenance attestation.
 - [ ] **Issue #21**: Local CI workflow testing (act/nektos).

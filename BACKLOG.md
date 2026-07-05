@@ -47,8 +47,8 @@
 - [ ] **Item W7: Request Versioned API Contract from WineBot**: `GET /version` returning capabilities list for compatibility detection.
 
 ### WBAB → WinInspect Improvements
-- [ ] **Item B1: MSVC-Capable Build Image (Hard Blocker)**: Create MSVC winbuild variant (`tools/winbuild/Dockerfile.msvc` or new image) using msvc-wine or xwin to provide Windows SDK + MSVC CRT under Wine. Without this, WBAB cannot build WinInspect.
-- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`. (Deferred — requires MSVC build path decision first)
+- [ ] **Item B1: WinInspect v0.4.0 Build Verification**: WinInspect v0.4.0 includes Wine 10.0 compatibility fixes with proven daemon stability on Wine (both platforms, 60s+ uptime). The MinGW cross-compilation path in `tools/winbuild/Dockerfile` may now be sufficient. Verify by attempting a build with WBAB's existing toolchain before pursuing MSVC options.
+- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`. (Deferred — blocked on WinInspect build verification)
 - [ ] **Item B3: Go Toolchain in Winbuild Image**: Add `golang-go` package for WinInspect's Go components (2.8% of codebase).
 - [ ] **Item B4: Daemon-Aware Test Lifecycle**: Extend `test-real.sh` with pre/post command hooks for daemon-based test suites (required for WinInspect's daemon→client test pattern).
 - [ ] **Item B5: Recursive Submodule Support**: Add `WBAB_GIT_CLONE_RECURSIVE` flag or auto-detect `.gitmodules` in `GitSourceManager.prepare_source()`.
