@@ -1,6 +1,6 @@
 # Project State
 
-**Date:** 2026-02-09
+**Date:** 2026-07-05
 
 ## Status
 Bring-up scaffold created and partially implemented. `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are now
@@ -189,3 +189,9 @@ Dependency versions (`hadolint`, `trivy`) updated to latest stable.
 
 ## Next actions
 1. Publish toolchain images to GHCR
+
+## Cross-project analysis (2026-07-05)
+See `STATE.md` (root) and `BACKLOG.md` for the latest bidirectional analysis of WineBot→WBAB and WBAB→WinInspect improvements. Key findings:
+- **WineBot v0.9.5→v0.9.7 gap**: 6+ files pin the older tag; v0.9.7 has resource guardrails, temporal correctness, recording contracts
+- **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` cannot build WinInspect (requires MSVC toolchain)
+- **14 actionable items** catalogued in BACKLOG.md across both improvement directions

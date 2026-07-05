@@ -89,3 +89,6 @@ TLA CI execution notes:
 - Add concrete Dockerfiles for release GHCR publish workflow outputs
 - Add core daemon/library with idempotent command processing
 - Add formal model (TLA+) and model-validated tests
+- **WineBot v0.9.7 upgrade**: Bump default tag, validate recording API + resource guardrails
+- **MSVC build path**: Create MSVC-capable winbuild variant for WinInspect support
+- **Cross-project integration**: C++ linting, Go toolchain, daemon-aware test lifecycle, WinInspect contract tests (see BACKLOG.md for full inventory)

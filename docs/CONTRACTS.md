@@ -105,7 +105,8 @@ The CLI must expose these verbs (even if some are stubbed initially):
 ## Policy constraints (must hold)
 - If `WBAB_ALLOW_LOCAL_BUILD != 1`, the system must not invoke `docker build` for build/package/sign images.
 - WineBot runs are pull-first from GHCR; local WineBot build path is disabled.
-- CI policy: prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5` for WineBot runs.
+- CI policy: prefer official `ghcr.io/mark-e-deyoung/winebot:v0.9.5` for WineBot runs. **Note:** Upstream WineBot is at `v0.9.7`; upgrade requires coordinated tag bump across all integration points (BACKLOG.md Items W1-W7).
+- WinInspect builds require MSVC toolchain; current winbuild container uses MinGW cross-compilation only. Creating MSVC build path is a prerequisite (BACKLOG.md Item B1).
 - Commit policy: one git commit per requested implementation change unless the user explicitly requests batching.
 - Build/package default fixture commands must use concrete container scripts (`tools/winbuild/build-fixture.sh`, `tools/packaging/package-fixture.sh`) with output validation.
 - Core baseline policy: repeated `wbabd run <same-op-id> ...` must not re-execute succeeded operations.

@@ -1,4 +1,4 @@
-# WBAB Project State - 2026-02-18
+# WBAB Project State - 2026-07-05
 
 ## Overview
 The WineBotAppBuilder (WBAB) project has transitioned from a bring-up scaffold to a production-hardened, scalable, and secure containerized toolchain for Windows development.
@@ -30,8 +30,14 @@ The system is now fully stabilized, featuring a hardened CI/CD pipeline, SQLite 
 ## Active Constraints
 - **Policy Enforcement**: Strict adherence to `ORGANIZATION_POLICY.md` (4-tier structure) and `LINT_POLICY.md`.
 - **Security**: No host-side script execution for core verbs in production.
+- **WineBot version pin**: WBAB pins WineBot at `v0.9.5` in 6+ files; upstream is `v0.9.7`. Gap includes resource guardrails, temporal correctness, recording contracts, and lifecycle hardening.
+- **MSVC/MinGW blocker**: `tools/winbuild/Dockerfile` provides MinGW cross-compilation only (`x86_64-w64-mingw32-gcc/g++`). WinInspect requires MSVC (Visual Studio Build Tools + Windows SDK). This is the fundamental architecture mismatch preventing WBAB from building WinInspect.
 
 ## Next Steps
 - [ ] **Issue #7**: Implement Web-Based Operations Dashboard.
 - [ ] **Issue #8**: Enable TLS by default for daemon communication.
 - [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
+- [ ] **WineBot v0.9.7 upgrade**: Bump `WBAB_WINEBOT_TAG` default to `v0.9.7` across all integration points and validate recording API convergence model works with existing winebot-smoke.sh.
+- [ ] **MSVC build path for WinInspect**: Create MSVC-capable winbuild variant (`tools/winbuild/Dockerfile.msvc` or separate image) using `msvc-wine` or native Windows runner to enable building WinInspect within WBAB's pipeline.
+- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy` for WinInspect's C++ codebase.
+- [ ] **WinInspect contract tests**: Add pipeline shape validation for C++/CMake projects following WinInspect's daemon/client architecture.

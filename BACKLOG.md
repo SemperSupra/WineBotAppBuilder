@@ -23,3 +23,22 @@
 
 ## Test Engineering
 - [x] **Item 10: Modernize Shell Unit Tests**: Transitioned `tests/shell/` and `tests/e2e/` to support containerized verification and Remote RCE Guard.
+
+## Cross-Project Integration (2026-07-05 Analysis)
+### WineBot → WBAB Improvements
+- [ ] **Item W1: WineBot v0.9.5→v0.9.7 Upgrade**: Bump default tag across 6+ files. Requires validating v0.9.7's new recording API contract, resource guardrails, and temporal correctness features work with WBAB's existing smoke pipeline.
+- [ ] **Item W2: Request Readiness Endpoint from WineBot**: Add `GET /ready` to WineBot API for deterministic smoke startup sequencing. WBAB would poll before exec-ing installer commands.
+- [ ] **Item W3: Request Install API from WineBot**: Structured `POST /apps/install` replacing multi-step compose-exec installer dance with single API call returning exit code + file manifest.
+- [ ] **Item W4: Request File Extraction API from WineBot**: `POST /files/read` replacing fragile `docker cp` + path-guessing logic in winebot-smoke.sh.
+- [ ] **Item W5: Request User-Mode Cert Trust API from WineBot**: Single `POST /certs/trust` replacing dual-user (root+winebot) exec in winebot-trust-dev-cert.sh.
+- [ ] **Item W6: Request CI Smoke Profile from WineBot**: `ci-smoke` compose profile that auto-captures evidence and produces structured `smoke-result.json`.
+- [ ] **Item W7: Request Versioned API Contract from WineBot**: `GET /version` returning capabilities list for compatibility detection.
+
+### WBAB → WinInspect Improvements
+- [ ] **Item B1: MSVC-Capable Build Image (Hard Blocker)**: Create MSVC winbuild variant (`tools/winbuild/Dockerfile.msvc` or new image) using msvc-wine or xwin to provide Windows SDK + MSVC CRT under Wine. Without this, WBAB cannot build WinInspect.
+- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`.
+- [ ] **Item B3: Go Toolchain in Winbuild Image**: Add `golang-go` package for WinInspect's Go components (2.8% of codebase).
+- [ ] **Item B4: Daemon-Aware Test Lifecycle**: Extend `test-real.sh` with pre/post command hooks for daemon-based test suites (required for WinInspect's daemon→client test pattern).
+- [ ] **Item B5: Recursive Submodule Support**: Add `WBAB_GIT_CLONE_RECURSIVE` flag or auto-detect `.gitmodules` in `GitSourceManager.prepare_source()`.
+- [ ] **Item B6: WinInspect Contract Tests**: Add `tests/contract/test_wininspect_pipeline.sh` validating plan JSON shape for C++/CMake project type.
+- [ ] **Item B7: Project Type Auto-Detection**: Extend `wbab doctor` to recognize WinInspect-style projects (CMakeLists.txt + clients/ + daemon/) and provide targeted diagnostics.
