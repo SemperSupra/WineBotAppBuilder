@@ -34,6 +34,13 @@ RUN curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/d
     && dpkg -i /tmp/trivy.deb \
     && rm /tmp/trivy.deb
 
+# Install CycloneDX CLI for SBOM validation
+RUN curl -sSL -o /tmp/cyclonedx-cli.tar.gz https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.1/cyclonedx-linux-amd64.tar.gz \
+    && tar -xzf /tmp/cyclonedx-cli.tar.gz -C /tmp \
+    && mv /tmp/cyclonedx-linux-amd64/cyclonedx /usr/local/bin/cyclonedx \
+    && chmod +x /usr/local/bin/cyclonedx \
+    && rm -rf /tmp/cyclonedx*
+
 # Create non-root user
 RUN groupadd -g 1000 wbab && useradd -u 1000 -g wbab -m -s /bin/bash wbab
 

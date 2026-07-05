@@ -23,6 +23,18 @@
 
 ## Test Engineering
 - [x] **Item 10: Modernize Shell Unit Tests**: Transitioned `tests/shell/` and `tests/e2e/` to support containerized verification and Remote RCE Guard.
+- [x] **Item 11: Python Unit Tests in CI**: Added `python-unit` job to `ci.yml` running `test_scm.py` and `test_wbabd_concurrency.py` with code coverage.
+- [x] **Item 12: Code Coverage Measurement**: Added `coverage.py` to CI pipeline generating HTML reports uploaded as CI artifacts.
+- [x] **Item 13: SBOM Validation**: Added `cyclonedx-cli` to linter container; SBOM is validated after generation during lint.
+- [x] **Item 14: Image Vulnerability Scanning**: Added `trivy image` scan to release workflow, scanning each image after publish.
+- [x] **Item 15: Build Output Structure Contract Test**: Added `tests/contract/test_build_output_structure.sh` validating build-real.sh output paths.
+- [x] **Item 16: CLI UX Contract Tests**: Added `tests/contract/test_cli_ux.sh` validating help text, error messages, and command behavior.
+- [x] **Item 17: Dependabot Configuration**: Added `.github/dependabot.yml` tracking pip, docker, and GitHub Actions dependencies weekly.
+
+## Deferred Testing Improvements (GitHub Issues)
+- [#20](https://github.com/SemperSupra/WineBotAppBuilder/issues/20) — **SLSA Build Provenance**: Add cryptographic attestation to release artifacts.
+- [#21](https://github.com/SemperSupra/WineBotAppBuilder/issues/21) — **Local CI Workflow Testing**: Add nektos/act config for running GitHub Actions locally.
+- [#22](https://github.com/SemperSupra/WineBotAppBuilder/issues/22) — **Property-Based Testing**: Add Hypothesis for fuzz-testing store/audit operations.
 
 ## Cross-Project Integration (2026-07-05 Analysis)
 ### WineBot → WBAB Improvements
@@ -36,7 +48,7 @@
 
 ### WBAB → WinInspect Improvements
 - [ ] **Item B1: MSVC-Capable Build Image (Hard Blocker)**: Create MSVC winbuild variant (`tools/winbuild/Dockerfile.msvc` or new image) using msvc-wine or xwin to provide Windows SDK + MSVC CRT under Wine. Without this, WBAB cannot build WinInspect.
-- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`.
+- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`. (Deferred — requires MSVC build path decision first)
 - [ ] **Item B3: Go Toolchain in Winbuild Image**: Add `golang-go` package for WinInspect's Go components (2.8% of codebase).
 - [ ] **Item B4: Daemon-Aware Test Lifecycle**: Extend `test-real.sh` with pre/post command hooks for daemon-based test suites (required for WinInspect's daemon→client test pattern).
 - [ ] **Item B5: Recursive Submodule Support**: Add `WBAB_GIT_CLONE_RECURSIVE` flag or auto-detect `.gitmodules` in `GitSourceManager.prepare_source()`.

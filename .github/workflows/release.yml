@@ -21,6 +21,12 @@ jobs:
       - name: Create artifacts directory
         run: mkdir -p artifacts
 
+      - name: Install Trivy (for image scanning)
+        run: |
+          curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v0.59.1/trivy_0.59.1_Linux-64bit.deb
+          sudo dpkg -i /tmp/trivy.deb
+          rm /tmp/trivy.deb
+
       - name: Run all tests (containerized)
         run: |
           export WBAB_ALLOW_LOCAL_BUILD=1
@@ -95,6 +101,14 @@ jobs:
               exit 1
             fi
             echo "${image}:${TAG}@${digest}" >> artifacts/publish-digests.txt
+
+            # Scan the published image for vulnerabilities
+            echo "Scanning ${image}:${TAG} for vulnerabilities..."
+            trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "${image}:${TAG}" || {
+              echo "ERROR: High/Critical vulnerabilities found in ${image}:${TAG}" >&2
+              exit 1
+            }
+            echo "Image scan passed for ${image}:${TAG}"
           }
 
           publish_if_exists "tools/winbuild/Dockerfile" "winebotappbuilder-winbuild"

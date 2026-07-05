@@ -55,6 +55,15 @@ echo "[lint] trivy (SBOM generation)"
 # Only attempt if writable (agent-sandbox might be root-owned in some CI setups)
 if [[ -w "/workspace/agent-sandbox/state" ]]; then
   trivy fs --format cyclonedx --output /workspace/agent-sandbox/state/sbom-repo.cdx.json --skip-dirs tools/WineBot .
+  echo "[lint] cyclonedx (SBOM validation)"
+  if command -v cyclonedx &>/dev/null; then
+    cyclonedx validate --input-file /workspace/agent-sandbox/state/sbom-repo.cdx.json || {
+      echo "ERROR: SBOM validation failed" >&2
+      exit 1
+    }
+  else
+    echo "WARN: cyclonedx CLI not found, skipping SBOM validation"
+  fi
 else
   echo "WARN: agent-sandbox/state not writable, skipping SBOM generation"
 fi

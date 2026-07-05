@@ -55,6 +55,29 @@ jobs:
           chmod +x tests/policy/run.sh
           ./tests/policy/run.sh
 
+  python-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+      - name: Install dependencies
+        run: pip install coverage
+      - name: Run Python unit tests with coverage
+        run: |
+          python3 -m coverage run --source=core -m unittest discover -s tests/unit -p "*.py"
+          python3 -m coverage run --append --source=core tests/test_wbabd_concurrency.py
+      - name: Report coverage
+        run: |
+          python3 -m coverage report -m
+          python3 -m coverage html -d coverage_html
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_html/
+          if-no-files-found: warn
+
   e2e-smoke:
     runs-on: ubuntu-latest
     steps:
