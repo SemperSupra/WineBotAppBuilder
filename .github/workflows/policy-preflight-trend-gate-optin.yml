@@ -48,7 +48,7 @@ jobs:
           tools/wbabd api "{\"op\":\"preflight_trend\",\"window\":${WBABD_PREFLIGHT_TREND_WINDOW}}" > artifacts/policy-preflight-trend-gate/preflight-trend.json
       - name: Upload preflight trend diagnostics artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: policy-preflight-trend-gate-diagnostics
           path: artifacts/policy-preflight-trend-gate/preflight-trend.json

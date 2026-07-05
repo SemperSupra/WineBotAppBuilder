@@ -28,7 +28,7 @@ jobs:
           cp docs/FORMAL_MODEL_HOWTO.md formal-model-snapshot/
           cp docs/CONTRACTS.md formal-model-snapshot/
       - name: Upload formal model snapshot
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: tla-formal-model-snapshot
           path: formal-model-snapshot/
