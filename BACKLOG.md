@@ -19,7 +19,7 @@
 - [x] **Item 3: Non-Root Containers**: Updated all Dockerfiles to run as non-root user `wbab`.
 - [x] **Item 5: Remote RCE Guard**: Shifted `Executor` to direct `docker run` execution, eliminating dependency on host-side shell scripts for core verbs.
 - [x] **Item 8: TLS by Default**: Enforce HTTPS for all daemon communication using the internal PKI.
-- [ ] **Item 9: Docker Socket Protection**: Remove `docker.sock` mount from linter; transition to host-side image verification. (Medium Priority)
+- [x] **Item 9: Docker Socket Protection**: Remove `docker.sock` mount from linter; linter tools only do filesystem-level scans.
 
 ## Test Engineering
 - [x] **Item 10: Modernize Shell Unit Tests**: Transitioned `tests/shell/` and `tests/e2e/` to support containerized verification and Remote RCE Guard.

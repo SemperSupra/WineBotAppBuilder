@@ -34,9 +34,10 @@ fi
 
 echo "Running containerized lint..."
 # Use relative paths for mounting to be more robust across different CI/local setups
+# Note: docker.sock is intentionally NOT mounted — linter tools (shellcheck, ruff,
+# mypy, hadolint, trivy fs) only do filesystem-level scans and don't need Docker access.
 docker run --rm \
   -v "${MOUNT_DIR}:/workspace" \
-  -v "/var/run/docker.sock:/var/run/docker.sock" \
   -w /workspace \
   "${IMAGE_TO_RUN}" \
   /usr/local/bin/wbab-lint-internal
