@@ -78,15 +78,17 @@ class GitSourceManager:
                     timeout=timeout,
                 )
 
-            # Update submodules recursively
-            subprocess.run(
-                ["git", "submodule", "update", "--init", "--recursive", "--quiet"],
-                cwd=temp_dir,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+            # Update submodules unless explicitly disabled
+            recursive = os.environ.get("WBAB_GIT_CLONE_RECURSIVE", "1")
+            if recursive != "0":
+                subprocess.run(
+                    ["git", "submodule", "update", "--init", "--recursive", "--quiet"],
+                    cwd=temp_dir,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
 
             yield temp_dir
 
