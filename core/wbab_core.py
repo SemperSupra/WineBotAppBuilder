@@ -476,7 +476,19 @@ class Executor:
     def _get_backoff_delay(self, attempts: int) -> int:
         if attempts <= 1:
             return 0
-        return min(300, 2**attempts)
+        try:
+            base = int(os.environ.get("WBAB_RETRY_BACKOFF_BASE", "2"))
+        except (ValueError, TypeError):
+            base = 2
+        try:
+            max_delay = int(os.environ.get("WBAB_RETRY_BACKOFF_MAX", "300"))
+        except (ValueError, TypeError):
+            max_delay = 300
+        if base < 2:
+            base = 2
+        if max_delay < 1:
+            max_delay = 300
+        return min(max_delay, base**attempts)
 
     def _validate_outputs(self, plan: Plan) -> bool:
         project_dir = Path(plan.args[0]) if plan.args else Path(".")

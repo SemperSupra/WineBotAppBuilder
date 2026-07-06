@@ -31,6 +31,8 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBAB_LINT_CMD` (default `wbab-lint`): lint command executed in toolchain container
 - `WBAB_TEST_CMD` (default `wbab-test`): test command executed in toolchain container
 - `WBAB_EXECUTION_TIMEOUT_SECS` (default `3600`): max seconds for a single execution step
+- `WBAB_RETRY_BACKOFF_BASE` (default `2`): exponential base for retry backoff (`base^attempts`); clamped to minimum of 2
+- `WBAB_RETRY_BACKOFF_MAX` (default `300`): maximum retry backoff delay in seconds; clamped to minimum of 1
 - `WBAB_PACKAGER_IMAGE` (default `ghcr.io/sempersupra/winebotappbuilder-packager`): packager image
 - `WBAB_PACKAGER_DOCKERFILE` (default `tools/packaging/Dockerfile`): local packager Dockerfile path
 - `WBAB_PACKAGE_CMD` (default consumes `out/FakeApp.exe`, creates `dist/FakeSetup.exe` + `dist/package-fixture.txt`): package command executed in packager container
