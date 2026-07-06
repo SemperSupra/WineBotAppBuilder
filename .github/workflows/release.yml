@@ -10,6 +10,13 @@ permissions:
   contents: write
   packages: write
 
+# Local/CI parity: lint and build are containerized (linter + winbuild Dockerfiles).
+# Both local and CI run the same images with the same pinned tool versions.
+# The dockerfiles-drycheck.sh step below validates Dockerfile structure.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -21,28 +28,28 @@ jobs:
       - name: Create artifacts directory
         run: mkdir -p artifacts
 
+      - name: Cache Trivy binary
+        uses: actions/cache@v4
+        with:
+          path: /tmp/trivy.deb
+          key: ${{ runner.os }}-trivy-0.59.1
+
       - name: Install Trivy (for image scanning)
         run: |
-          curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v0.59.1/trivy_0.59.1_Linux-64bit.deb
+          if [[ -f /tmp/trivy.deb ]]; then
+            echo "Using cached trivy binary"
+          else
+            curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v0.59.1/trivy_0.59.1_Linux-64bit.deb
+          fi
           sudo dpkg -i /tmp/trivy.deb
-          rm /tmp/trivy.deb
 
-      - name: Run all tests (containerized)
-        run: |
-          export WBAB_ALLOW_LOCAL_BUILD=1
-          
-          # Set executable bits before changing ownership
-          chmod +x scripts/lint.sh scripts/lint-container.sh tests/shell/run.sh tests/contract/run.sh tests/policy/run.sh tests/e2e/run.sh
-          
-          # Fix permissions for non-root containers (UID 1000)
-          sudo chmod -R a+w .
-          
-          ./scripts/lint.sh
-          ./tests/shell/run.sh
-          ./tests/contract/run.sh
-          ./tests/policy/run.sh
-          ./tests/e2e/run.sh
+      - name: Cache Trivy vulnerability DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: ${{ runner.os }}-trivy-db
 
+      # Tests already passed in ci.yml on merge — release only validates publish
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -85,6 +92,8 @@ jobs:
               --file "${dockerfile}" \
               --tag "${image}:${TAG}" \
               --tag "${image}:latest" \
+              --cache-from type=gha \
+              --cache-to type=gha,mode=max \
               --label "org.opencontainers.image.source=https://github.com/${REPO}" \
               --label "org.opencontainers.image.revision=${SHA}" \
               --label "org.opencontainers.image.version=${TAG}" \
@@ -104,7 +113,7 @@ jobs:
 
             # Scan the published image for vulnerabilities
             echo "Scanning ${image}:${TAG} for vulnerabilities..."
-            trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "${image}:${TAG}" || {
+            trivy image --cache-dir ~/.cache/trivy --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "${image}:${TAG}" || {
               echo "ERROR: High/Critical vulnerabilities found in ${image}:${TAG}" >&2
               exit 1
             }
