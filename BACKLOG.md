@@ -18,7 +18,7 @@
 - [x] **Item 1: Strict Path Jailing**: Implemented `Path.resolve()` checks in `Executor` to prevent directory traversal.
 - [x] **Item 3: Non-Root Containers**: Updated all Dockerfiles to run as non-root user `wbab`.
 - [x] **Item 5: Remote RCE Guard**: Shifted `Executor` to direct `docker run` execution, eliminating dependency on host-side shell scripts for core verbs.
-- [ ] **Item 8: TLS by Default**: Enforce HTTPS for all daemon communication using the internal PKI. (High Priority)
+- [x] **Item 8: TLS by Default**: Enforce HTTPS for all daemon communication using the internal PKI.
 - [ ] **Item 9: Docker Socket Protection**: Remove `docker.sock` mount from linter; transition to host-side image verification. (Medium Priority)
 
 ## Test Engineering
@@ -49,8 +49,8 @@
 ### WBAB → WinInspect Improvements
 - [ ] **Item B1: WinInspect v0.4.0 Build Verification**: WinInspect v0.4.0 includes Wine 10.0 compatibility fixes with proven daemon stability on Wine (both platforms, 60s+ uptime). The MinGW cross-compilation path in `tools/winbuild/Dockerfile` may now be sufficient. Verify by attempting a build with WBAB's existing toolchain before pursuing MSVC options.
 - [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`. (Deferred — blocked on WinInspect build verification)
-- [ ] **Item B3: Go Toolchain in Winbuild Image**: Add `golang-go` package for WinInspect's Go components (2.8% of codebase).
+- [x] **Item B3: Go Toolchain in Winbuild Image**: Added `golang-go` package for WinInspect's Go components.
 - [ ] **Item B4: Daemon-Aware Test Lifecycle**: Extend `test-real.sh` with pre/post command hooks for daemon-based test suites (required for WinInspect's daemon→client test pattern).
-- [ ] **Item B5: Recursive Submodule Support**: Add `WBAB_GIT_CLONE_RECURSIVE` flag or auto-detect `.gitmodules` in `GitSourceManager.prepare_source()`.
+- [x] **Item B5: Recursive Submodule Support**: Added `WBAB_GIT_CLONE_RECURSIVE` env var to `GitSourceManager.prepare_source()`.
 - [ ] **Item B6: WinInspect Contract Tests**: Add `tests/contract/test_wininspect_pipeline.sh` validating plan JSON shape for C++/CMake project type.
-- [ ] **Item B7: Project Type Auto-Detection**: Extend `wbab doctor` to recognize WinInspect-style projects (CMakeLists.txt + clients/ + daemon/) and provide targeted diagnostics.
+- [x] **Item B7: Project Type Auto-Detection**: Extended `wbab doctor` to recognize WinInspect-style projects (CMakeLists.txt + clients/ + daemon/) with targeted diagnostics.
