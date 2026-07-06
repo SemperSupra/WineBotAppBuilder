@@ -1,0 +1,49 @@
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# Build artifacts
+out/
+dist/
+artifacts/
+samples/*/build/
+samples/*/out/
+samples/*/dist/
+
+# Runtime state
+agent-sandbox/
+agent-privileged/
+.wbab/
+.wbab.lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+coverage_html/
+
+# Node (if present)
+node_modules/
+
+# Secrets
+.env
+*.key
+*.pem
+*.pfx
+
+# Editor / temp files
+*.swp
+*.tmp
+*.swo
+
+# Local CI (act)
+.act/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation and session files
+HANDoFF.md
