@@ -55,4 +55,22 @@ echo "${SHEBANG}" | grep -qE "^#!/" || {
   exit 1
 }
 
+# 9. Doctor detects WinInspect-style project
+echo "  [9] doctor detects WinInspect project type"
+WI_TMP="$(mktemp -d)"
+trap 'rm -rf "${WI_TMP}"' EXIT
+touch "${WI_TMP}/CMakeLists.txt"
+mkdir -p "${WI_TMP}/clients" "${WI_TMP}/daemon"
+WI_DOCTOR=$("${WBAB}" doctor "${WI_TMP}" 2>&1 || true)
+echo "${WI_DOCTOR}" | grep -qi "WinInspect" || {
+  echo "FAIL: doctor did not detect WinInspect project type" >&2
+  exit 1
+}
+echo "${WI_DOCTOR}" | grep -qi "CMake" || {
+  echo "FAIL: doctor did not mention CMake for WinInspect project" >&2
+  exit 1
+}
+rm -rf "${WI_TMP}"
+trap 'rm -rf "${TMP}"' EXIT
+
 echo "OK: CLI UX contracts satisfied"
