@@ -18,6 +18,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 ## Required environment variables
 - `WBAB_TAG` (recommended): toolchain image tag to pull (e.g., `v1.0.0`)
 - `WBAB_ALLOW_LOCAL_BUILD` (default `0`): allow building toolchain images locally
+- `WBAB_GIT_CLONE_RECURSIVE` (default `1`): control recursive submodule init in `GitSourceManager`; set to `0` to skip `git submodule update --init --recursive` after clone
 - `WBAB_WINEBOT_IMAGE` (default `ghcr.io/mark-e-deyoung/winebot`): WineBot image
 - `WBAB_WINEBOT_TAG` (default `v0.9.5`): WineBot image tag
 - `WBAB_WINEBOT_PROFILE` (default `headless`): compose profile
