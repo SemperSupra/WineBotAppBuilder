@@ -13,7 +13,7 @@ EXIT_NOT_IMPLEMENTED=10
 
 usage() {
   cat <<'EOF'
-WineBotAppBuilder (wbab)
+WineBotAppBuilder (wbab) v0.3.7
 
 Usage:
   wbab <verb> [args...]
@@ -73,6 +73,11 @@ except ImportError:
 
 cmd_doctor() {
   local ok=1
+  local target="${1:-}"
+  if [[ -n "${target}" && "${target}" != /* ]]; then
+    target="${ROOT_DIR}/${target}"
+  fi
+  local target="${target:-${ROOT_DIR}}"
 
   if command -v docker >/dev/null 2>&1; then
     if docker compose version >/dev/null 2>&1; then
@@ -101,6 +106,23 @@ cmd_doctor() {
     echo "doctor: WineBot compose file missing at tools/WineBot/compose/docker-compose.yml" >&2
     echo "doctor: hint: run ./scripts/bootstrap-submodule.sh" >&2
     ok=0
+  fi
+
+  # Project type detection (diagnostic, does not affect exit code)
+  if [[ -f "${target}/CMakeLists.txt" ]]; then
+    if [[ -d "${target}/clients" && -d "${target}/daemon" ]]; then
+      echo "doctor: project type: WinInspect (CMake + clients/ + daemon/)"
+      echo "doctor:   hint: set WBAB_GIT_CLONE_RECURSIVE=1 for submodule support"
+      if command -v x86_64-w64-mingw32-g++ &>/dev/null; then
+        echo "doctor:   MinGW cross-compiler (x86_64-w64-mingw32-g++) available"
+      else
+        echo "doctor:   MinGW cross-compiler not available locally; use winbuild container"
+      fi
+    elif [[ -d "${target}/core" ]]; then
+      echo "doctor: project type: C++/CMake project with core library"
+    else
+      echo "doctor: project type: CMake-based project"
+    fi
   fi
 
   if [[ "${ok}" -eq 1 ]]; then
@@ -300,7 +322,9 @@ EOF
   "steps": [
     "check_docker",
     "check_compose",
-    "check_winebot_submodule"
+    "check_winebot_submodule",
+    "detect_project_type",
+    "check_mingw_cross_compiler"
   ]
 }
 EOF
