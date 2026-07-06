@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     gcc-mingw-w64 \
     git \
+    golang-go \
     make \
     mingw-w64 \
     ninja-build \
