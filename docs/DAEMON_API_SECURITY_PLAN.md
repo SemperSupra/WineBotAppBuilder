@@ -73,11 +73,13 @@ Baseline:
 - prefer internal PKI for private deployment (no public ACME dependency)
 
 TLS:
-- provide TLS mode for `serve`:
-  - `WBABD_TLS_CERT_FILE`
-  - `WBABD_TLS_KEY_FILE`
-  - optional `WBABD_TLS_CLIENT_CA_FILE` for mTLS
-- enforce modern TLS versions and disable weak ciphers
+- TLS is required by default for `wbabd serve` (fail-closed on missing config)
+- opt-out with `WBABD_TLS_DISABLE=1` for development (not recommended for production)
+- provide TLS configuration env vars:
+  - `WBABD_TLS_CERT_FILE` — server certificate path
+  - `WBABD_TLS_KEY_FILE` — server private key path
+  - `WBABD_TLS_CLIENT_CA_FILE` — optional client CA path enabling mTLS
+- enforce modern TLS versions (TLSv1.2+) and disable weak ciphers
 - internal PKI lifecycle helper:
   - `scripts/security/daemon-pki.sh init`
   - `scripts/security/daemon-pki.sh rotate`

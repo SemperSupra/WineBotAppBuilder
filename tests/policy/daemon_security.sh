@@ -21,9 +21,11 @@ for p in "${required_auth_patterns[@]}"; do
 done
 
 # 2. Transport Security (TLS)
-# Ensures TLS is not optional in production modes
+# Ensures TLS is enforced by default with opt-out available
 grep -q "cert_file" "${daemon}" || { echo "POLICY FAILURE: wbabd missing TLS cert handling" >&2; exit 1; }
 grep -q "key_file" "${daemon}" || { echo "POLICY FAILURE: wbabd missing TLS key handling" >&2; exit 1; }
+grep -q "WBABD_TLS_DISABLE" "${daemon}" || { echo "POLICY FAILURE: wbabd missing WBABD_TLS_DISABLE opt-out" >&2; exit 1; }
+grep -q "TLS is required by default" "${daemon}" || { echo "POLICY FAILURE: wbabd missing TLS required message" >&2; exit 1; }
 
 # 3. PKI Infrastructure
 # Unifies existence and basic property checks

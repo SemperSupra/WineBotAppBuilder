@@ -67,13 +67,20 @@ resolve_token() {
 }
 
 validate_tls() {
-  local cert key ca
+  local cert key ca disable
   cert="${WBABD_TLS_CERT_FILE:-}"
   key="${WBABD_TLS_KEY_FILE:-}"
   ca="${WBABD_TLS_CLIENT_CA_FILE:-}"
+  disable="${WBABD_TLS_DISABLE:-}"
 
-  if [[ -z "${cert}" && -z "${key}" && -z "${ca}" ]]; then
+  # Allow explicit opt-out
+  if [[ "${disable}" == "1" || "${disable}" == "true" || "${disable}" == "yes" ]]; then
     return 0
+  fi
+
+  # If TLS is not opt-out and not configured, require it
+  if [[ -z "${cert}" && -z "${key}" && -z "${ca}" ]]; then
+    fail "TLS is required by default. Set WBABD_TLS_CERT_FILE and WBABD_TLS_KEY_FILE, or set WBABD_TLS_DISABLE=1 (not recommended for production)"
   fi
 
   [[ -n "${cert}" && -n "${key}" ]] || fail "WBABD_TLS_CERT_FILE and WBABD_TLS_KEY_FILE must both be set when TLS is enabled"
