@@ -810,6 +810,18 @@ def main() -> int:
             if auth_mode == "token" and not token:
                 print("wbabd: token auth enabled but no WBABD_API_TOKEN or WBABD_API_TOKEN_FILE provided", file=sys.stderr)
                 return 2
+
+            # TLS enforcement: required by default, opt-out with WBABD_TLS_DISABLE=1
+            tls_ctx = _tls_context_from_env()
+            tls_disable = os.environ.get("WBABD_TLS_DISABLE", "").strip().lower() in ("1", "true", "yes")
+            if not tls_ctx and not tls_disable:
+                print(
+                    "wbabd: TLS is required by default. "
+                    "Set WBABD_TLS_CERT_FILE and WBABD_TLS_KEY_FILE to the server cert/key pair, "
+                    "or set WBABD_TLS_DISABLE=1 to run without TLS (not recommended for production).",
+                    file=sys.stderr,
+                )
+                return 2
             
             asyncio.run(_serve_async(ns.host, ns.port, store, planner, executor, auth_mode, token, authz_policy, audit))
             return 0

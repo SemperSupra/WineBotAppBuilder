@@ -61,6 +61,7 @@ The CLI must expose these verbs (even if some are stubbed initially):
 - `WBABD_TLS_CERT_FILE` (optional): server certificate path for `wbabd serve` TLS mode
 - `WBABD_TLS_KEY_FILE` (optional): server private key path for `wbabd serve` TLS mode
 - `WBABD_TLS_CLIENT_CA_FILE` (optional): client CA bundle path enabling mTLS (`CERT_REQUIRED`)
+- `WBABD_TLS_DISABLE` (default unset): set to `1`, `true`, or `yes` to run `wbabd serve` without TLS (not recommended for production)
 - `WBABD_HTTP_MAX_BODY_BYTES` (default `1048576`): maximum HTTP request body size in bytes
 - `WBABD_HTTP_REQUEST_TIMEOUT_SECS` (default `15`): per-request socket timeout seconds
 - `WBABD_PKI_DIR` (default `agent-privileged/daemon-pki`): internal PKI helper output directory for CA/server/client material
