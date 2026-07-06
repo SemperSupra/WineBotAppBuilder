@@ -1,16 +1,20 @@
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 from pathlib import Path
-import sys
 
 # Add repo root to path
 ROOT_DIR = Path(__file__).parents[2]
 sys.path.insert(0, str(ROOT_DIR))
 
+# Mock fcntl before importing wbab_core (not available on Windows)
+sys.modules["fcntl"] = MagicMock()
+
 from core.scm import GitSourceManager, sanitize_git_url  # noqa: E402
+from core.wbab_core import Executor, OperationStore  # noqa: E402
 
 
 class TestSCM(unittest.TestCase):
@@ -116,3 +120,76 @@ class TestGitSourceManagerRecursive(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestBackoffDelay(unittest.TestCase):
+    """Tests for Executor._get_backoff_delay() configurable backoff."""
+
+    def setUp(self):
+        self.root_dir = Path(tempfile.mkdtemp())
+        self.store = MagicMock(spec=OperationStore)
+        self.audit = MagicMock()
+        self.executor = Executor(self.root_dir, self.store, audit=self.audit)
+
+    def tearDown(self):
+        shutil.rmtree(self.root_dir, ignore_errors=True)
+
+    def test_backoff_defaults(self):
+        """Default base=2, max=300."""
+        self.assertEqual(self.executor._get_backoff_delay(0), 0)
+        self.assertEqual(self.executor._get_backoff_delay(1), 0)
+        self.assertEqual(self.executor._get_backoff_delay(2), 4)
+        self.assertEqual(self.executor._get_backoff_delay(3), 8)
+        self.assertEqual(self.executor._get_backoff_delay(4), 16)
+        self.assertEqual(self.executor._get_backoff_delay(9), 300)  # capped
+
+    def test_backoff_attempts_zero_and_one_always_zero(self):
+        """0 and 1 attempts always return 0 regardless of env settings."""
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_BASE": "10"}):
+            self.assertEqual(self.executor._get_backoff_delay(0), 0)
+            self.assertEqual(self.executor._get_backoff_delay(1), 0)
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_MAX": "0"}):
+            self.assertEqual(self.executor._get_backoff_delay(0), 0)
+            self.assertEqual(self.executor._get_backoff_delay(1), 0)
+
+    @patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_BASE": "3"})
+    def test_backoff_custom_base(self):
+        """When WBAB_RETRY_BACKOFF_BASE=3, delay uses 3^attempts."""
+        self.assertEqual(self.executor._get_backoff_delay(2), 9)
+        self.assertEqual(self.executor._get_backoff_delay(3), 27)
+        self.assertEqual(self.executor._get_backoff_delay(4), 81)
+
+    @patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_MAX": "10"})
+    def test_backoff_custom_max(self):
+        """When WBAB_RETRY_BACKOFF_MAX=10, delay is capped at 10."""
+        self.assertEqual(self.executor._get_backoff_delay(4), 10)
+        self.assertEqual(self.executor._get_backoff_delay(9), 10)
+
+    @patch.dict(os.environ, {
+        "WBAB_RETRY_BACKOFF_BASE": "3",
+        "WBAB_RETRY_BACKOFF_MAX": "50",
+    })
+    def test_backoff_custom_base_and_max(self):
+        """Both env vars together produce correct values."""
+        self.assertEqual(self.executor._get_backoff_delay(2), 9)
+        self.assertEqual(self.executor._get_backoff_delay(3), 27)
+        self.assertEqual(self.executor._get_backoff_delay(4), 50)
+
+    def test_backoff_non_numeric_base_falls_back(self):
+        """Non-numeric WBAB_RETRY_BACKOFF_BASE falls back to default 2."""
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_BASE": "not-a-number"}):
+            self.assertEqual(self.executor._get_backoff_delay(2), 4)
+            self.assertEqual(self.executor._get_backoff_delay(3), 8)
+
+    def test_backoff_non_numeric_max_falls_back(self):
+        """Non-numeric WBAB_RETRY_BACKOFF_MAX falls back to default 300."""
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_MAX": "not-a-number"}):
+            self.assertEqual(self.executor._get_backoff_delay(2), 4)
+            self.assertEqual(self.executor._get_backoff_delay(9), 300)
+
+    def test_backoff_base_too_low_clamped(self):
+        """Base < 2 is clamped to 2."""
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_BASE": "0"}):
+            self.assertEqual(self.executor._get_backoff_delay(2), 4)
+        with patch.dict(os.environ, {"WBAB_RETRY_BACKOFF_BASE": "1"}):
+            self.assertEqual(self.executor._get_backoff_delay(2), 4)
