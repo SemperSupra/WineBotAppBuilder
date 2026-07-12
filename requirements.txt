@@ -1,2 +1,2 @@
 zeroconf==0.148.0
-hypothesis>=6.0
+hypothesis>=6.156.6
