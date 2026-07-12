@@ -29,7 +29,7 @@ jobs:
         run: mkdir -p artifacts
 
       - name: Cache Trivy binary
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: /tmp/trivy.deb
           key: ${{ runner.os }}-trivy-0.59.1
@@ -44,7 +44,7 @@ jobs:
           sudo dpkg -i /tmp/trivy.deb
 
       - name: Cache Trivy vulnerability DB
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/trivy
           key: ${{ runner.os }}-trivy-db
