@@ -52,8 +52,10 @@ cat > "${bad_policy}" <<'EOF'
 {"principals":{"broken":{"verbs":"not-a-list"}}}
 EOF
 set +e
+# This case isolates authz schema validation; TLS enforcement is covered by
+# dedicated tests and otherwise fails earlier in the preflight sequence.
 bad_policy_out="$(
-  WBABD_AUTH_MODE=off WBABD_AUTHZ_POLICY_FILE="${bad_policy}" bash "${preflight}" serve 2>&1
+  WBABD_AUTH_MODE=off WBABD_TLS_DISABLE=1 WBABD_AUTHZ_POLICY_FILE="${bad_policy}" bash "${preflight}" serve 2>&1
 )"
 bad_policy_rc=$?
 set -e

@@ -1,94 +1,152 @@
 # CONTEXT_BUNDLE (read this first)
 
 ## Current milestone
-**Bring-up scaffold (increments 0–3)**:
-- repo structure + CI gates
-- pull-first winbuild runner (GHCR)
-- pull-first packaging runner (GHCR)
-- concrete winbuild fixture build implementation (`tools/winbuild/build-fixture.sh`)
-- concrete packaging NSIS fixture implementation (`tools/packaging/package-fixture.sh`)
-- pull-first signing runner (GHCR)
-- dev signing cert lifecycle script (`scripts/signing/dev-cert.sh`)
-- production-like signing PKI lifecycle script (`scripts/signing/signing-pki.sh`)
-- TLA+ idempotency/retry model skeleton (`formal/tla/DaemonIdempotency.tla`)
-- optional extended TLA+ retry-counter invariants (`formal/tla/DaemonIdempotencyExtended.cfg`)
-- pull-first WineBot runner (GHCR stable)
-- contract docs + partially implemented CLI (`doctor`, `build`, `package`, `sign`, `smoke`, `plan`)
-- unit tests for policies
-- concrete publish Dockerfiles for winbuild/packaging/signing images
-- core baseline library+daemon shim (`core/wbab_core.py`, `tools/wbabd`)
-- `wbabd` API adapter surface for non-CLI clients (`tools/wbabd api`, optional `tools/wbabd serve`)
-- append-only audit stream for cross-agent traceability (`agent-sandbox/state/audit-log.sqlite`)
-- daemon API security hardening plan (`docs/DAEMON_API_SECURITY_PLAN.md`)
-- daemon internal PKI helper for TLS/mTLS assets (`scripts/security/daemon-pki.sh`)
-- daemon deploy profile for TLS/mTLS env mapping (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- daemon machine-readable deploy templates (`deploy/daemon/`)
-- daemon startup preflight validator (`scripts/security/daemon-preflight.sh`)
-- daemon preflight diagnostics surface (`agent-sandbox/state/preflight-status.json`, API ops, HTTP endpoints)
-- daemon startup preflight trend counters (`agent-sandbox/state/preflight-counters.json`, `command.preflight` audit details)
-- daemon preflight trend summary helper (`scripts/security/preflight-trend-report.sh`)
-- daemon preflight trend threshold helper (`scripts/security/preflight-trend-threshold-check.sh`)
+
+**Testing corrective program #58 — P0 through P3 complete on the corrective stack.**
+
+Current durable workset:
+
+- parent PR #59: `corrective/testing-capability-qualification`;
+- stacked P3 PR #60: `corrective/testing-ceremony-prune`;
+- last validated P3 documentation checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`;
+- exact ordinary CI at that checkpoint: run `33637937692`, five jobs passed.
+
+Implemented capability state:
+
+- real candidate-source winbuild/product qualification vertical;
+- real candidate-source NSIS packaging;
+- real development signing with independent signature verification;
+- WineBot install + installed CLI execution + deterministic externalized postcondition;
+- ordinary `build`, `package`, and `sign` verbs use truthful real defaults;
+- explicit fixture/custom modes and fail-closed contradictory-mode handling;
+- structured `wbab plan` aligned with runtime execution mode;
+- idempotent daemon state, retry/resume, audit, AuthN/AuthZ/TLS surfaces;
+- live HTTP bearer-auth behavioral coverage;
+- structured release authority-order policy checks;
+- compact five-job ordinary CI with mocked integration retained inside the bounded shell suite;
+- candidate Product Qualification path-scoped to product-path changes and manually dispatchable;
+- completed P3 recurring-gate inventory and ceremony-pruning stop decision.
+
+Release qualification is **not** complete. The release workflow publishes real artifacts/images, but exact published identities have not yet been qualified as a release set.
 
 ## Directory map
-- `tools/` scripts intended to be used by consumers and CI
-- `scripts/` repo maintenance scripts (lint, bootstrap)
-- `tests/` unit/contract/policy tests
-- `.github/workflows/` CI workflows
-- `docs/` durable specs, contracts, state, decisions
+
+- `tools/` — user/automation-facing commands and runtime adapters
+- `core/` — shared business logic
+- `scripts/` — repository maintenance/security/publish helpers
+- `tests/shell/` — bounded shell behavior, targeted mocks, selected live-local behavior
+- `tests/contract/` — structured CLI/interface contracts
+- `tests/policy/` — authority/config/provenance/formal-model policy checks
+- `tests/unit/` — Python/core unit/property tests
+- `tests/e2e/product-qualification.sh` — real first-party candidate product vertical
+- `tests/e2e/run-real.sh` — opt-in real Docker/WineBot infrastructure smoke
+- `.github/workflows/` — CI, qualification, manual diagnostic/formal/release workflows
+- `docs/` — durable contracts, current state, corrective plan, security/formal guidance
 
 ## Canonical contracts
-See `docs/CONTRACTS.md`.
-This repo’s contract is tested by `tests/contract/`.
-Formal model interpretation guide: `docs/FORMAL_MODEL_HOWTO.md`.
+
+- Current state/resume point: `docs/STATE.md`
+- Testing corrective plan and gate inventory: `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`
+- CLI/environment contracts: `docs/CONTRACTS.md`
+- Daemon security architecture: `docs/DAEMON_API_SECURITY_PLAN.md`
+- Formal model interpretation: `docs/FORMAL_MODEL_HOWTO.md`
+- Agent working rules: `AGENTS.md`
 
 ## Commands to run locally
+
+Ordinary validators:
+
 ```bash
 ./scripts/bootstrap-submodule.sh
 ./scripts/lint.sh
 ./tests/shell/run.sh
 ./tests/contract/run.sh
 ./tests/policy/run.sh
-./tests/e2e/run.sh
-# opt-in (requires real docker + WineBot submodule):
-# ./tests/e2e/run-real.sh
-# opt-in CI check for TLA+ skeleton contract:
-# gh workflow run tla-skeleton-contract-optin.yml
 ```
 
-TLA CI execution notes:
-- Trigger the opt-in workflow manually from GitHub Actions, or run `gh workflow run tla-skeleton-contract-optin.yml`.
-- The workflow validates `tests/policy/test_tla_idempotency_skeleton.sh` only (naming/invariant contract, not full TLC state-space checks).
-- The workflow uploads `tla-formal-model-snapshot` with explicit TLA files (`DaemonIdempotency.tla`, `DaemonIdempotency.cfg`, `DaemonIdempotencyExtended.cfg`, `README.md`) plus `docs/FORMAL_MODEL_HOWTO.md` and `docs/CONTRACTS.md`.
-- The workflow writes a file-list summary for that snapshot to `${GITHUB_STEP_SUMMARY}`.
-- Release sign-off checklist requires reviewing the `tla-formal-model-snapshot` artifact contents for each opt-in run.
-- Contributor usage criteria for the formal-model PR checklist line: see `docs/FORMAL_MODEL_HOWTO.md` (Contributor note).
-- Recommended: include that checklist line for PRs that change formal models or retry/idempotency behavior.
-- For signoff copy/paste, use the compact checklist example in `docs/CONTRACTS.md` (`Compact release-signoff checklist example`).
-- Operator note: keep checklist text synchronized between `docs/CONTRACTS.md` (compact example) and `docs/FORMAL_MODEL_HOWTO.md` (PR checklist line example).
+The mocked build→package→sign→smoke integration test is invoked by `tests/shell/run.sh`; there is no separate ordinary `tests/e2e/run.sh` gate.
 
-## CI gates
-- lint
-- shell-unit
-- contract
-- policy
-- e2e-smoke (mocked pipeline)
-- e2e-real (opt-in workflow_dispatch; real Docker/WineBot + artifact upload)
-- policy-preflight-trend-gate-optin (opt-in workflow_dispatch; runs policy suite with `WBABD_POLICY_PREFLIGHT_TREND_GATE=1`)
-- tla-skeleton-contract-optin (opt-in workflow_dispatch; validates TLA+ skeleton contract checks)
-- tla-skeleton-contract-optin artifact (`tla-formal-model-snapshot`) includes formal model docs/config snapshot
+Higher-fidelity paths:
 
-## Default policies
-- Prefer `docker compose` over `docker-compose`, but support both.
-- Prefer official WineBot image `ghcr.io/mark-e-deyoung/winebot:v0.9.5` over local builds.
-- No local builds unless explicitly enabled by env flags.
+```bash
+# Candidate-source first-party product qualification
+./tests/e2e/product-qualification.sh
 
-## Next increments (planned)
-- Add winbuild container + fixture build
-- Add packaging container + NSIS fixture installer
-- Add artifact publishing for opt-in real e2e runs
-- Add concrete Dockerfiles for release GHCR publish workflow outputs
-- Add core daemon/library with idempotent command processing
-- Add formal model (TLA+) and model-validated tests
-- **WineBot v0.9.7 upgrade**: Bump default tag, validate recording API + resource guardrails
-- **MSVC build path**: Create MSVC-capable winbuild variant for WinInspect support
-- **Cross-project integration**: C++ linting, Go toolchain, daemon-aware test lifecycle, WinInspect contract tests (see BACKLOG.md for full inventory)
+# Opt-in real Docker/WineBot infrastructure smoke
+./tests/e2e/run-real.sh
+```
+
+## Current command semantics
+
+- `./tools/wbab build <project>` — real image-native build by default.
+- `./tools/wbab package <project>` — real image-native package by default.
+- `./tools/wbab sign <project>` — real development-certificate signing by default.
+- fixture mode — explicit test selection only.
+- custom command mode — explicit override only.
+- contradictory mode settings — fail closed.
+- `./tools/wbab plan ...` — reports the same resolved execution mode/command used by runtime execution.
+
+Ordinary consumption remains pull-first from approved GHCR images. Candidate-source/local image construction is permitted when qualification/development requires it; do not treat that as the ordinary distribution default.
+
+## CI / workflow map
+
+### Ordinary PR CI — five recurring jobs
+
+1. `lint`
+2. `shell-unit` — bounded shell + retained mocked integration
+3. `contract`
+4. `policy`
+5. `python-unit`
+
+### Product qualification
+
+`Product Qualification (Candidate)`:
+
+- triggers on relevant `core/**`, `tools/**`, validation-app, qualification-script, or qualification-workflow PR changes;
+- can also be manually dispatched;
+- checks out the exact candidate head;
+- runs the full candidate-source first-party product vertical;
+- uploads retained qualification evidence;
+- evidence class: `PRODUCT_QUALIFICATION` only on terminal success.
+
+### Opt-in/manual workflows
+
+- `E2E Real (Opt-In)` — real Docker/WineBot infrastructure path; normally `INFRASTRUCTURE_SMOKE`.
+- `Policy Preflight Trend Gate (Opt-in)` — daemon trend-policy/diagnostic workflow.
+- `TLA Skeleton Contract (Opt-in)` — TLA skeleton contract + formal-model snapshot; not full TLC state-space proof.
+- `Release Automation` — real publication path with credential/authority boundaries; publication success is not by itself `RELEASE_QUALIFICATION`.
+
+`Approved Issues Only` and `Approved PRs Only` are participation/governance controls, not testing gates.
+
+## Evidence rules
+
+Use:
+
+- `STATIC_CONTRACT`
+- `MOCKED_BEHAVIOR`
+- `INFRASTRUCTURE_SMOKE`
+- `PRODUCT_QUALIFICATION`
+- `RELEASE_QUALIFICATION`
+
+Do not silently promote a weaker class. Bind stronger claims to exact source/artifact identities. A P3 documentation/test-policy-only change does not inherit a new product PASS, but it also should not trigger Product Qualification when no product surface changed.
+
+## Proven corrective checkpoints
+
+- P1 first-party product qualification: `04eb9e85805f629fcc2f36ab5f3428920d07be6b`; CI `33620383914`; Product Qualification `33620384011`.
+- P2 build/package truthful defaults: `f0ff0f6ef2ea43cf704733fa6c28a5e7d6e33564`; CI `33628042826`; Product Qualification `33628042831`.
+- P2 signing truthful default: `1c986051a078f870ee70c37d5088006b34239534`; CI `33629015926`; Product Qualification `33629015830`.
+- P3.1 structured plan-contract collapse: `7a075f729257601d15f527b3686bab736cf68095`; CI `33631623609`; Product Qualification `33631623580`.
+- P3.2 engineering consolidation: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`, five jobs passed.
+- P3.2 documentation/inventory checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`, five jobs passed.
+
+## P3 stop decision
+
+P3 is complete. The as-built inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md` shows that each remaining ordinary gate has a distinct protected risk and an actionable failure decision. Further deletion is not earned merely to reduce gate count. Reassess only when a cheaper/more faithful replacement exists or a remaining signal demonstrably becomes redundant.
+
+## Next bounded work
+
+1. Refresh mutable PR heads/status from GitHub and make PR #60 review-ready if it remains mergeable and exact-head checks are green.
+2. Reconcile the stacked integration path with parent PR #59 without transferring validation claims across changed heads.
+3. Scope P4 separately: exact published image digests, exact release artifact hashes, release-qualified first-party vertical, and selected external target(s).
+
+Stop before release publication, production signing credentials, destructive history changes, or undeclared authority escalation.

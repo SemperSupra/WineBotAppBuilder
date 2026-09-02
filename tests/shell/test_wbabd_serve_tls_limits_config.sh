@@ -74,23 +74,25 @@ grep -q 'TLS is required by default' <<< "${no_tls_out}" || {
   exit 1
 }
 
-# 6. TLS opt-out works (WBABD_TLS_DISABLE=1 allows plain HTTP)
+# 6. TLS opt-out works (WBABD_TLS_DISABLE=1 allows plain HTTP).
+# A valid serve command should remain alive, not fail. Bound the process and
+# treat timeout expiry as evidence that config validation accepted the opt-out
+# and entered the long-running server state.
 echo "  [6] TLS opt-out: WBABD_TLS_DISABLE=1 allows plain HTTP"
 set +e
 tls_opt_out="$(
-  cd "${TMP}" && WBABD_TLS_DISABLE=1 WBABD_AUTH_MODE=off ./tools/wbabd serve --host 127.0.0.1 --port 19999 2>&1
+  cd "${TMP}" && timeout --kill-after=1s 2s env WBABD_TLS_DISABLE=1 WBABD_AUTH_MODE=off ./tools/wbabd serve --host 127.0.0.1 --port 19999 2>&1
 )"
 rc_tls_opt=$?
 set -e
-# This should fail because we never actually start a server (no asyncio event loop in test),
-# but the TLS enforcement should NOT be the reason for failure
-[[ "${rc_tls_opt}" -ne 0 ]] || { echo "Note: serve would start but likely fails on asyncio (expected)" >&2; }
-# Verify the error is NOT about TLS
-echo "${tls_opt_out}" | grep -q 'TLS is required by default' && {
-  # Only fail if the error IS about TLS (meaning opt-out didn't work)
-  if echo "${tls_opt_out}" | grep -qv 'TLS is required by default'; then
-    :  # OK - not a TLS error
-  fi
+[[ "${rc_tls_opt}" -eq 124 ]] || {
+  echo "Expected TLS-disabled server to remain running until bounded timeout; rc=${rc_tls_opt}" >&2
+  echo "${tls_opt_out}" >&2
+  exit 1
 }
+if grep -q 'TLS is required by default' <<< "${tls_opt_out}"; then
+  echo "TLS opt-out was rejected" >&2
+  exit 1
+fi
 
 echo "OK: wbabd serve TLS/limits config enforcement"

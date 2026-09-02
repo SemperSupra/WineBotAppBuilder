@@ -1,0 +1,68 @@
+name: Product Qualification (Candidate)
+
+on:
+  workflow_dispatch:
+    inputs:
+      winebot_tag:
+        description: "WineBot image tag to qualify against"
+        required: false
+        default: "stable"
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'tools/**'
+      - 'samples/validation-app/**'
+      - 'tests/e2e/product-qualification.sh'
+      - '.github/workflows/product-qualification.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-qualification-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out exact candidate head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+
+      - name: Show exact candidate and runtime
+        run: |
+          set -euo pipefail
+          tested_sha="$(git rev-parse HEAD)"
+          expected_sha="${{ github.event.pull_request.head.sha || github.sha }}"
+          echo "tested_sha=${tested_sha}"
+          echo "expected_candidate_sha=${expected_sha}"
+          [[ "${tested_sha}" == "${expected_sha}" ]] || {
+            echo "ERROR: checkout identity mismatch" >&2
+            exit 2
+          }
+          docker --version
+          docker compose version
+
+      - name: Run candidate-source product qualification
+        env:
+          WBAB_WINEBOT_TAG: ${{ inputs.winebot_tag || 'stable' }}
+          WBAB_PQ_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          chmod +x tests/e2e/product-qualification.sh
+          # product-qualification.sh records GITHUB_SHA as its source identity.
+          # Override the inherited pull_request merge SHA for this process with
+          # the exact checked-out candidate head already verified above.
+          GITHUB_SHA="$(git rev-parse HEAD)" ./tests/e2e/product-qualification.sh
+
+      - name: Upload product qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/product-qualification/**
+          if-no-files-found: warn

@@ -56,15 +56,20 @@ class TestGitSourceManagerRecursive(unittest.TestCase):
         shutil.rmtree(self.root_dir, ignore_errors=True)
 
     @patch("core.scm.subprocess.run")
-    @patch("core.scm.os.environ", {
-        "WBAB_GIT_TIMEOUT_SECS": "300",
-        "WBAB_GIT_ALLOWED_DOMAINS": "",
-    })
+    @patch(
+        "core.scm.os.environ",
+        {
+            "WBAB_GIT_TIMEOUT_SECS": "300",
+            "WBAB_GIT_ALLOWED_DOMAINS": "",
+        },
+    )
     def test_prepare_source_recursive_default(self, mock_run):
         """When WBAB_GIT_CLONE_RECURSIVE is unset, submodule update should run."""
         mock_run.return_value = MagicMock()
         try:
-            with self.manager.prepare_source("https://github.com/test/a.git", "main") as path:
+            with self.manager.prepare_source(
+                "https://github.com/test/a.git", "main"
+            ) as path:
                 self.assertTrue(path.exists())
         except Exception:
             pass
@@ -75,19 +80,26 @@ class TestGitSourceManagerRecursive(unittest.TestCase):
         for call_args in mock_run.call_args_list:
             all_cmds.extend(call_args[0][0])
         cmd_str = " ".join(all_cmds)
-        self.assertIn("submodule", cmd_str, "Expected submodule update when env var unset")
+        self.assertIn(
+            "submodule", cmd_str, "Expected submodule update when env var unset"
+        )
 
     @patch("core.scm.subprocess.run")
-    @patch("core.scm.os.environ", {
-        "WBAB_GIT_TIMEOUT_SECS": "300",
-        "WBAB_GIT_ALLOWED_DOMAINS": "",
-        "WBAB_GIT_CLONE_RECURSIVE": "1",
-    })
+    @patch(
+        "core.scm.os.environ",
+        {
+            "WBAB_GIT_TIMEOUT_SECS": "300",
+            "WBAB_GIT_ALLOWED_DOMAINS": "",
+            "WBAB_GIT_CLONE_RECURSIVE": "1",
+        },
+    )
     def test_prepare_source_recursive_enabled(self, mock_run):
         """When WBAB_GIT_CLONE_RECURSIVE=1, submodule update should run."""
         mock_run.return_value = MagicMock()
         try:
-            with self.manager.prepare_source("https://github.com/test/a.git", "main") as path:
+            with self.manager.prepare_source(
+                "https://github.com/test/a.git", "main"
+            ) as path:
                 self.assertTrue(path.exists())
         except Exception:
             pass
@@ -95,19 +107,26 @@ class TestGitSourceManagerRecursive(unittest.TestCase):
         for call_args in mock_run.call_args_list:
             all_cmds.extend(call_args[0][0])
         cmd_str = " ".join(all_cmds)
-        self.assertIn("submodule", cmd_str, "Expected submodule update when RECURSIVE=1")
+        self.assertIn(
+            "submodule", cmd_str, "Expected submodule update when RECURSIVE=1"
+        )
 
     @patch("core.scm.subprocess.run")
-    @patch("core.scm.os.environ", {
-        "WBAB_GIT_TIMEOUT_SECS": "300",
-        "WBAB_GIT_ALLOWED_DOMAINS": "",
-        "WBAB_GIT_CLONE_RECURSIVE": "0",
-    })
+    @patch(
+        "core.scm.os.environ",
+        {
+            "WBAB_GIT_TIMEOUT_SECS": "300",
+            "WBAB_GIT_ALLOWED_DOMAINS": "",
+            "WBAB_GIT_CLONE_RECURSIVE": "0",
+        },
+    )
     def test_prepare_source_recursive_disabled(self, mock_run):
         """When WBAB_GIT_CLONE_RECURSIVE=0, submodule update should NOT run."""
         mock_run.return_value = MagicMock()
         try:
-            with self.manager.prepare_source("https://github.com/test/a.git", "main") as path:
+            with self.manager.prepare_source(
+                "https://github.com/test/a.git", "main"
+            ) as path:
                 self.assertTrue(path.exists())
         except Exception:
             pass
@@ -115,7 +134,9 @@ class TestGitSourceManagerRecursive(unittest.TestCase):
         for call_args in mock_run.call_args_list:
             all_cmds.extend(call_args[0][0])
         cmd_str = " ".join(all_cmds)
-        self.assertNotIn("submodule", cmd_str, "Expected no submodule update when RECURSIVE=0")
+        self.assertNotIn(
+            "submodule", cmd_str, "Expected no submodule update when RECURSIVE=0"
+        )
 
 
 if __name__ == "__main__":
@@ -165,10 +186,13 @@ class TestBackoffDelay(unittest.TestCase):
         self.assertEqual(self.executor._get_backoff_delay(4), 10)
         self.assertEqual(self.executor._get_backoff_delay(9), 10)
 
-    @patch.dict(os.environ, {
-        "WBAB_RETRY_BACKOFF_BASE": "3",
-        "WBAB_RETRY_BACKOFF_MAX": "50",
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "WBAB_RETRY_BACKOFF_BASE": "3",
+            "WBAB_RETRY_BACKOFF_MAX": "50",
+        },
+    )
     def test_backoff_custom_base_and_max(self):
         """Both env vars together produce correct values."""
         self.assertEqual(self.executor._get_backoff_delay(2), 9)
@@ -200,8 +224,6 @@ class TestSanitizeGitUrlHypothesis(unittest.TestCase):
 
     def test_urls_with_credentials_redacted(self):
         """URLs with credentials always have them redacted."""
-        from hypothesis import given, strategies as st
-
         # Test common URL schemes with credentials
         urls_with_auth = [
             "https://user:pass@host/repo",

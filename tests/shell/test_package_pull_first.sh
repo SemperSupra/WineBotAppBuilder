@@ -20,13 +20,16 @@ chmod +x "${TMP}/mockbin/docker"
 export PATH="${TMP}/mockbin:${PATH}"
 export MOCK_LOG="${TMP}/mock.log"
 export WBAB_ALLOW_LOCAL_BUILD="0"
+unset WBAB_PACKAGE_MODE WBAB_PACKAGE_CMD
 
-bash "${TMP}/tools/package-nsis.sh" "${TMP}/project"
-
+output="$(bash "${TMP}/tools/package-nsis.sh" "${TMP}/project")"
 log="$(cat "${MOCK_LOG}")"
 
 echo "${log}" | grep -q "DOCKER pull " || { echo "Expected docker pull" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER run " || { echo "Expected docker run" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER build " && { echo "Did not expect docker build" >&2; exit 1; }
+echo "${log}" | grep -q "bash -lc wbab-package" || { echo "Expected real wbab-package command by default" >&2; exit 1; }
+echo "${log}" | grep -q "wbab-package-fixture" && { echo "Did not expect fixture package command by default" >&2; exit 1; }
+echo "${output}" | grep -q "mode=real" || { echo "Expected explicit real-mode status" >&2; exit 1; }
 
-echo "OK: package pull-first/no-build policy satisfied"
+echo "OK: package pull-first/no-build policy uses real execution by default"

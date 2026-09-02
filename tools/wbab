@@ -47,6 +47,91 @@ require_arg() {
   fi
 }
 
+resolve_execution_mode() {
+  local requested_mode="${1:-}"
+  local override_cmd="${2:-}"
+  local label="${3:-operation}"
+  local mode="${requested_mode}"
+
+  if [[ -z "${mode}" ]]; then
+    if [[ -n "${override_cmd}" ]]; then
+      mode="custom"
+    else
+      mode="real"
+    fi
+  fi
+
+  case "${mode}" in
+    real|fixture)
+      if [[ -n "${override_cmd}" ]]; then
+        die "${label} command override requires ${label} mode=custom"
+      fi
+      ;;
+    custom)
+      if [[ -z "${override_cmd}" ]]; then
+        die "${label} mode=custom requires a command override"
+      fi
+      ;;
+    *)
+      die "invalid ${label} execution mode: ${mode} (expected real|fixture|custom)"
+      ;;
+  esac
+
+  printf '%s' "${mode}"
+}
+
+resolve_sign_mode() {
+  local mode="${WBAB_SIGN_MODE:-}"
+  local override_cmd="${WBAB_SIGN_CMD:-}"
+  local legacy_mode=""
+
+  if [[ -z "${mode}" ]]; then
+    if [[ -n "${override_cmd}" ]]; then
+      mode="custom"
+    elif [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+      case "${WBAB_SIGN_USE_DEV_CERT}" in
+        1) mode="dev-cert" ;;
+        0) mode="fixture" ;;
+        *) die "WBAB_SIGN_USE_DEV_CERT must be 0 or 1" ;;
+      esac
+    else
+      mode="dev-cert"
+    fi
+  fi
+
+  if [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+    case "${WBAB_SIGN_USE_DEV_CERT}" in
+      1) legacy_mode="dev-cert" ;;
+      0) legacy_mode="fixture" ;;
+      *) die "WBAB_SIGN_USE_DEV_CERT must be 0 or 1" ;;
+    esac
+    if [[ "${mode}" != "${legacy_mode}" ]]; then
+      die "WBAB_SIGN_USE_DEV_CERT conflicts with WBAB_SIGN_MODE=${mode}"
+    fi
+  fi
+
+  case "${mode}" in
+    dev-cert|fixture)
+      if [[ -n "${override_cmd}" ]]; then
+        die "sign command override requires sign mode=custom"
+      fi
+      ;;
+    custom)
+      if [[ -z "${override_cmd}" ]]; then
+        die "sign mode=custom requires a command override"
+      fi
+      if [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+        die "legacy WBAB_SIGN_USE_DEV_CERT cannot be combined with custom signing"
+      fi
+      ;;
+    *)
+      die "invalid sign execution mode: ${mode} (expected dev-cert|fixture|custom)"
+      ;;
+  esac
+
+  printf '%s' "${mode}"
+}
+
 cmd_discover() {
   echo "Scanning local network for WBAB daemons..."
   python3 -c '
@@ -161,8 +246,8 @@ cmd_plan() {
   local packager_tag="${WBAB_TAG:-v0.3.7}"
   local signer_image="${WBAB_SIGNER_IMAGE:-ghcr.io/sempersupra/winebotappbuilder-signer}"
   local signer_tag="${WBAB_TAG:-v0.3.7}"
-  local sign_use_dev_cert="${WBAB_SIGN_USE_DEV_CERT:-0}"
-  local dev_cert_dir="${WBAB_DEV_CERT_DIR:-../agent-privileged/signing/dev}"
+  local sign_autogen_dev_cert="${WBAB_SIGN_AUTOGEN_DEV_CERT:-1}"
+  local dev_cert_dir="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/../agent-privileged/signing/dev}"
   local winebot_image="${WBAB_WINEBOT_IMAGE:-ghcr.io/mark-e-deyoung/winebot}"
   local winebot_tag="${WBAB_WINEBOT_TAG:-v0.9.5}"
   local winebot_profile="${WBAB_WINEBOT_PROFILE:-headless}"
@@ -245,6 +330,14 @@ EOF
       ;;
     build)
       local project_dir="${1:-.}"
+      local build_mode
+      local build_command
+      build_mode="$(resolve_execution_mode "${WBAB_BUILD_MODE:-}" "${WBAB_BUILD_CMD:-}" "build")"
+      case "${build_mode}" in
+        real) build_command="wbab-build" ;;
+        fixture) build_command="wbab-build-fixture" ;;
+        custom) build_command="${WBAB_BUILD_CMD}" ;;
+      esac
       cat <<EOF
 {
   "version": "0.1",
@@ -256,7 +349,9 @@ EOF
   "policy": {
     "allow_local_build": "${allow_local_build}",
     "toolchain_image": "$(json_escape "${toolchain_image}")",
-    "toolchain_tag": "$(json_escape "${toolchain_tag}")"
+    "toolchain_tag": "$(json_escape "${toolchain_tag}")",
+    "execution_mode": "$(json_escape "${build_mode}")",
+    "execution_command": "$(json_escape "${build_command}")"
   },
   "steps": [
     "pull_toolchain_image_by_default",
@@ -268,6 +363,14 @@ EOF
       ;;
     package)
       local project_dir="${1:-.}"
+      local package_mode
+      local package_command
+      package_mode="$(resolve_execution_mode "${WBAB_PACKAGE_MODE:-}" "${WBAB_PACKAGE_CMD:-}" "package")"
+      case "${package_mode}" in
+        real) package_command="wbab-package" ;;
+        fixture) package_command="wbab-package-fixture" ;;
+        custom) package_command="${WBAB_PACKAGE_CMD}" ;;
+      esac
       cat <<EOF
 {
   "version": "0.1",
@@ -279,7 +382,9 @@ EOF
   "policy": {
     "allow_local_build": "${allow_local_build}",
     "packager_image": "$(json_escape "${packager_image}")",
-    "packager_tag": "$(json_escape "${packager_tag}")"
+    "packager_tag": "$(json_escape "${packager_tag}")",
+    "execution_mode": "$(json_escape "${package_mode}")",
+    "execution_command": "$(json_escape "${package_command}")"
   },
   "steps": [
     "pull_packager_image_by_default",
@@ -291,6 +396,14 @@ EOF
       ;;
     sign)
       local project_dir="${1:-.}"
+      local sign_mode
+      local sign_command
+      sign_mode="$(resolve_sign_mode)"
+      case "${sign_mode}" in
+        dev-cert) sign_command="wbab-sign" ;;
+        fixture) sign_command="wbab-sign-fixture" ;;
+        custom) sign_command="${WBAB_SIGN_CMD}" ;;
+      esac
       cat <<EOF
 {
   "version": "0.1",
@@ -303,7 +416,9 @@ EOF
     "allow_local_build": "${allow_local_build}",
     "signer_image": "$(json_escape "${signer_image}")",
     "signer_tag": "$(json_escape "${signer_tag}")",
-    "sign_use_dev_cert": "${sign_use_dev_cert}",
+    "execution_mode": "$(json_escape "${sign_mode}")",
+    "execution_command": "$(json_escape "${sign_command}")",
+    "dev_cert_autogen": "${sign_autogen_dev_cert}",
     "dev_cert_dir": "$(json_escape "${dev_cert_dir}")"
   },
   "steps": [

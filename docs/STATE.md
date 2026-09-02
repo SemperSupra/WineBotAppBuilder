@@ -1,244 +1,113 @@
 # Project State
 
-**Date:** 2026-07-05
+**Current date:** 2026-09-02  
+**Current corrective program:** issue #58 — capability-driven product qualification and test-value correction  
+**Parent implementation PR:** #59 (`corrective/testing-capability-qualification`)  
+**Stacked P3 PR:** #60 (`corrective/testing-ceremony-prune`)
 
-## Milestone: v0.3.7 — Production Stable
+## Current status
 
-The WineBotAppBuilder has transitioned from bring-up scaffold to a production-hardened, scalable, secure containerized toolchain for Windows development on Linux. The system features a hardened CI/CD pipeline, SQLite-backed persistence, non-root container security, and full daemon API with AuthN/AuthZ/TLS.
+P0 through P3 are **complete on the corrective stack**. WBAB has:
 
-### Key Components
-- **`tools/wbab`**: Production CLI with Auto-Discovery (mDNS), discovery caching, and v0.3.x container integration.
-- **`tools/wbabd`**: Async daemon with Worker Pool Control, SQLite-backed `OperationStore` and `AuditLog`.
-- **`core/wbab_core.py`**: Hardened core with Strict Path Jailing and Remote RCE Guard (direct Docker execution).
-- **`agent-sandbox/`**: Standardized directory for all agent-managed state and build artifacts.
-- **`.github/workflows/`**: Robust Release Automation workflow with workspace permission normalization.
+- a proven candidate-source first-party Product Qualification vertical;
+- truthful real-by-default `build`, `package`, and development-signing semantics;
+- structured plan/contract validation;
+- behavioral replacement for superseded implementation-text policy checks;
+- a five-job ordinary CI topology whose remaining gates have explicit decision value;
+- an as-built gate inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`.
 
-### Infrastructure
-- **GHCR Images (v0.3.7 / latest)**: `winebotappbuilder-winbuild`, `winebotappbuilder-packager`, `winebotappbuilder-signer`, `winebotappbuilder-linter`
-- **Security**: All containers run as restricted user `wbab` (UID 1000), pull-first policy enforced.
+P4 / `RELEASE_QUALIFICATION` is deliberately separate and has **not** started. No current claim is made that exact published release images/artifacts have been qualified as a release set or that WBAB is generally `Production Stable`.
 
-### Achievements
-- [x] **CI/CD Reliability**: Resolved all workspace permission issues, synchronized local/remote test environments.
-- [x] **Correctness**: Atomic state updates via SQLite, clean artifact rollbacks on failure.
-- [x] **Security**: Strict path jailing, non-root containers, Remote RCE Guard, daemon TLS/mTLS, token auth, AuthZ allow-lists.
-- [x] **Test Engineering**: Modernized 100% of test suites for hardened architecture.
+## Proven checkpoints
 
-### Active Constraints
-- **Policy Enforcement**: Strict adherence to `ORGANIZATION_POLICY.md` (4-tier structure) and `LINT_POLICY.md`.
-- **Security**: No host-side script execution for core verbs in production.
-- **WineBot version pin**: WBAB pins WineBot at `v0.9.5` in 6+ files; upstream is `v0.9.7`. Gap includes resource guardrails, temporal correctness, recording contracts, and lifecycle hardening.
-- **MSVC/MinGW re-evaluation needed**: WinInspect v0.4.0 (released 2026-07-05) includes Wine 10.0 compatibility fixes, proven Wine daemon stability (60s+ uptime both platforms), and Wine tests on all PRs. This significantly reduces the assumed MSVC dependency — MinGW cross-compilation may now be sufficient for building and CI-validating WinInspect within WBAB's existing toolchain.
+- P1 Product Qualification: `04eb9e85805f629fcc2f36ab5f3428920d07be6b`; CI `33620383914`; Product Qualification `33620384011`.
+- P2 build/package: `f0ff0f6ef2ea43cf704733fa6c28a5e7d6e33564`; CI `33628042826`; Product Qualification `33628042831`.
+- P2 signing: `1c986051a078f870ee70c37d5088006b34239534`; CI `33629015926`; Product Qualification `33629015830`.
+- P3.1 plan-contract collapse: `7a075f729257601d15f527b3686bab736cf68095`; CI `33631623609`; regression Product Qualification `33631623580`.
+- P3.2 five-job engineering checkpoint: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`.
+- P3 documentation/inventory checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`.
+- P3 closeout checkpoint before deterministic integration fallback: `c903530aad7b5aeb2c4d48ce43637548f337f10c`; CI `33638302757`.
 
-### Completed This Session (2026-07-05)
-- [x] **Testing audit**: Comprehensive audit of all test infrastructure, local/CI parity, standards, and conformance.
-- [x] **Python tests in CI**: New `python-unit` job with code coverage reporting.
-- [x] **SBOM validation**: CycloneDX CLI added to linter, SBOM validated after generation.
-- [x] **Image vulnerability scanning**: Trivy image scan after each publish in release workflow.
-- [x] **Build output contract test**: `tests/contract/test_build_output_structure.sh` validates output paths.
-- [x] **CLI UX contract tests**: `tests/contract/test_cli_ux.sh` validates help text, errors, verb detection.
-- [x] **Dependabot**: Auto-tracking pip, docker, GitHub Actions weekly.
-- [x] **Repo hygiene**: Consolidated STATE docs, removed stale files + branches + tags + releases.
-- [x] **Default branch**: Renamed `master` → `main` (local + remote).
-- [x] **Bidirectional analysis**: Documented WineBot→WBAB and WBAB→WinInspect improvement recommendations.
-- [x] **WinInspect v0.4.0 discovery**: Identified that the latest WinInspect release (today) includes Wine compatibility fixes that change the MSVC/MinGW blocker assessment.
+## Ordinary validation topology
 
-### Next Steps
-- [ ] **Issue #7**: Implement Web-Based Operations Dashboard.
-- [ ] **Issue #8**: Enable TLS by default for daemon communication.
-- [ ] **Issue #3**: Implement Declarative Dependency Management ("Vending Machine").
-- [ ] **WineBot v0.9.7 upgrade**: Bump `WBAB_WINEBOT_TAG` default across all integration points.
-- [ ] **WinInspect v0.4.0 integration assessment**: Test building WinInspect v0.4.0 with WBAB's existing MinGW toolchain (Wine compatibility fixes may enable this without MSVC).
-- [ ] **C++ linting support**: Extend linter image with `clang-format` and `clang-tidy`. (Deferred — blocked on WinInspect build verification)
-- [ ] **WinInspect contract tests**: Pipeline shape validation for C++/CMake daemon/client projects. (Deferred)
-- [ ] **Issue #20**: SLSA build provenance attestation.
-- [ ] **Issue #21**: Local CI workflow testing (act/nektos).
-- [ ] **Issue #22**: Property-based testing (Hypothesis).
+1. `lint`
+2. `shell-unit` — bounded shell + targeted mocks + retained mocked integration
+3. `contract`
+4. `policy`
+5. `python-unit`
 
----
+Product Qualification is path-scoped/manual and is required when the changed claim crosses the real build/package/sign/install/runtime product boundary.
 
-## Status
-Bring-up scaffold created and partially implemented. `doctor`, `build`, `package`, `sign`, `smoke`, and `plan` are now
-functional CLI paths. The repo currently provides scaffolding, policy scripts, CI gates, and documentation structure.
-Real toolchain build/packaging logic is implemented in local scripts and Dockerfiles, pending image publication.
-TLA+ formal model expanded to cover full daemon lifecycle (step-level retry/resume).
-**Validation Sample App** (`samples/validation-app`) successfully verified with automated end-to-end correctness evaluation.
-Dependency versions (`hadolint`, `trivy`) updated to latest stable.
+## Execution / delegation correction
 
-## What is included
-- Pull-first WineBot runner scripts (GHCR v0.9.5 preferred)
-- Pull-first winbuild runner script (containerized build execution)
-- Pull-first packaging runner script (NSIS-first containerized packaging execution)
-- Concrete winbuild fixture build implementation path (`tools/winbuild/build-fixture.sh`, default in `tools/winbuild-build.sh`)
-- Concrete packaging NSIS fixture installer implementation path (`tools/packaging/package-fixture.sh`, default in `tools/package-nsis.sh`)
-- Real winbuild execution logic (`tools/winbuild/build-real.sh`) supporting CMake/Makefile cross-compilation
-- Real packaging execution logic (`tools/packaging/package-real.sh`) supporting NSIS
-- **Advanced Validation Sample App** (`samples/validation-app`):
-    - **Shared Idempotent Core** (`ValidationCore.dll`): Decoupled logic for file writing.
-    - **CLI Interface** (`ValidationCLI.exe`): Uses Core DLL, verified in smoke test.
-    - **GUI Interface** (`ValidationGUI.exe`): Uses Core DLL, supports interactive editing and automated timeout runs.
-    - **Automated Correctness Verification**: `wbab smoke` extended to extract container artifacts and verify file content.
-    - **Verified Lifecycle**: Full build/package/sign/smoke pipeline confirmed with automated content assertion.
-- Pull-first signing runner script (dev/test containerized signing execution)
-- Compose wrapper
-- Contract docs + tests
-- `wbab doctor` environment checks
-- `wbab build` dispatch to winbuild runner
-- `wbab package` dispatch to packaging runner
-- `wbab sign` dispatch to signing runner
-- `wbab smoke` dispatch to WineBot smoke runner
-- `wbab plan` JSON output for `build`, `package`, `sign`, `smoke`, and `doctor`
-- CI gates (lint/shell-unit/contract/policy/e2e-smoke)
-- Mocked e2e pipeline test (`build -> package -> sign -> smoke`)
-- Opt-in real Docker/WineBot e2e workflow (`.github/workflows/e2e-real.yml`)
-- Policy checks enforcing official WineBot source (`ghcr.io/mark-e-deyoung/winebot:v0.9.5`)
-- Real e2e workflow artifact upload (`actions/upload-artifact`) for `artifacts/`, `out/`, and `dist/`
-- Default fixture wiring across pipeline: `out/FakeApp.exe` -> `dist/FakeSetup.exe` -> `dist/FakeSetup-signed.exe`
-- Dev signing certificate lifecycle scripts (`scripts/signing/dev-cert.sh`) with init/rotate/export/import/status
-- Production-like signing PKI lifecycle helper (`scripts/signing/signing-pki.sh`) with init/rotate/status/export/import
-- Expanded TLA+ model skeleton (`formal/tla/DaemonIdempotency.tla`) covering full daemon lifecycle (step-level states, resume-on-retry) with optional extended step-level retry counters
-- Release-only GHCR publish workflow for WBAB images (`.github/workflows/release.yml`)
-- WineBot cert trust/import helper (`tools/winebot-trust-dev-cert.sh`) and real-e2e installer requirement when install is enabled
-- Concrete publish Dockerfiles: `tools/winbuild/Dockerfile`, `tools/packaging/Dockerfile`, `tools/signing/Dockerfile`
-- Policy gate enforces publish Dockerfiles use `debian:trixie-slim` and disallow `ubuntu` base images
-- Policy gate verifies system architecture and path conventions (includes SC2015 fix for casing retry logic)
-- Publish Dockerfile dry-check helper validates all publish Dockerfiles via `docker buildx build --check` (`scripts/publish/dockerfiles-drycheck.sh`)
-- Publish workflow references dry-check helper for local/CI parity before push (`.github/workflows/release.yml`)
-- Shell gate validates publish workflow order keeps dry-check step before image push step (`tests/shell/test_publish_workflow_drycheck_order.sh`)
-- Policy gate validates publish workflow order keeps dry-check step before image push step (`tests/policy/test_publish_security_gates.sh`)
-- Policy gate enforces dry-check step runs before GHCR login (fail-fast before credentials) and login runs before image push step
-- Shell parity gate enforces publish workflow sequencing `dry-check < GHCR login < publish` (`tests/shell/test_publish_workflow_drycheck_order.sh`)
-- Shell parity gate enforces dry-check helper path usage in publish workflow (`scripts/publish/dockerfiles-drycheck.sh`)
-- Policy gate keeps dry-check step name stable (`Dry-check publish Dockerfiles (local/CI parity)`) for workflow contract consistency
-- Policy gate keeps GHCR login and publish step names stable for workflow contract consistency
-- Policy and shell gates enforce publish workflow ordering `buildx < dry-check < GHCR login < publish`
-- Policy gate pins Buildx setup action version in publish workflow (`docker/setup-buildx-action@v3`)
-- Shell parity gate pins Buildx setup action version in publish workflow (`docker/setup-buildx-action@v3`)
-- Shell parity gate pins GHCR login action version in publish workflow (`docker/login-action@v3`)
-- Policy + shell parity gates pin Hadolint action version (`hadolint/hadolint-action@v3.3.0`) across all three publish lint steps
-- Policy + shell parity gates pin Trivy action version (`aquasecurity/trivy-action@0.29.0`) across both security and SBOM steps
-- Policy + shell parity gates pin publish metadata upload action version (`actions/upload-artifact@v4`)
-- Policy + shell parity gates pin checkout action version in publish workflow (`actions/checkout@v4`)
-- Policy + shell parity gates pin checkout setting `submodules: false` in publish workflow
-- Policy + shell parity gates enforce publish workflow permissions (`contents: read`, `packages: write`)
-- Policy + shell parity gates pin publish trigger contract (`release` + `types: [published]`, no `push`)
-- Policy + shell parity gates pin publish metadata artifact contract (`publish-ghcr-metadata`, `artifacts/**`, `if-no-files-found: warn`)
-- Policy + shell parity gates pin Buildx step/action adjacency (`Set up Docker Buildx` + `docker/setup-buildx-action@v3` in same step block)
-- Policy + shell parity gates pin GHCR login step/action adjacency (`Log in to GHCR` + `docker/login-action@v3` in same step block)
-- Policy + shell parity gates pin dry-check step/command adjacency (`Dry-check publish Dockerfiles (local/CI parity)` + `scripts/publish/dockerfiles-drycheck.sh` in same step block)
-- Policy + shell parity gates pin upload step/action adjacency (`Upload publish metadata` + `actions/upload-artifact@v4` in same step block)
-- Policy + shell parity gates pin upload metadata fields adjacency (`name/path/if-no-files-found`) inside `Upload publish metadata` step block
-- Policy + shell parity gates pin publish step command adjacency (`Publish images...` keeps `docker buildx build` with `--push` in the same step block)
-- Policy + shell parity gates pin publish metadata-digest handling adjacency (`--metadata-file`, `containerimage.digest`, `artifacts/publish-digests.txt`) inside publish step block
-- Policy + shell parity gates pin GHCR login credential-field adjacency (`registry: ghcr.io`, `username: ${{ github.actor }}`, `password: ${{ secrets.GITHUB_TOKEN }}`) inside login step block
-- Policy + shell parity gates pin publish env contract adjacency (`OWNER`, `TAG`, `REPO`, `SHA`) inside publish step block
-- Policy + shell parity gates pin publish OCI label adjacency (`source`, `revision`, `version`, `title`) inside publish step block
-- Policy + shell parity gates pin publish mapping adjacency (`publish_if_exists` calls for winbuild/packager/signer) inside publish step block
-- Policy + shell parity gates pin publish owner/image construction adjacency (`owner_lc` normalization + `ghcr.io/${owner_lc}/${image_name}`) inside publish step block
-- Policy + shell parity gates pin publish missing-Dockerfile guard adjacency (`[[ ! -f "${dockerfile}" ]]`, `SKIP: missing`, `return 0`) inside `publish_if_exists`
-- Policy + shell parity gates pin publish missing-digest fail-closed adjacency (`[[ -z "${digest}" ]]`, error message, `exit 1`) inside `publish_if_exists`
-- Policy + shell parity gates pin `publish_if_exists` argument contract adjacency (`local dockerfile="$1"`, `local image_name="$2"`) inside function block
-- Policy + shell parity gates pin publish artifact-manifest prep adjacency (`mkdir -p artifacts`, `: > artifacts/publish-digests.txt`) inside publish step block
-- Policy + shell parity gates pin publish metadata-file path adjacency (`local metadata_file="artifacts/${image_name}.metadata.json"`) inside publish step block
-- Policy + shell parity gates pin digest-manifest line format adjacency (`"${image}:${TAG}@${digest}" >> artifacts/publish-digests.txt`) inside publish step block
-- Policy + shell parity gates pin digest extraction command adjacency (`jq -r '.["containerimage.digest"] // empty' "${metadata_file}"`) inside `publish_if_exists`
-- Policy + shell parity gates pin `publish_if_exists` definition-before-call adjacency inside publish step block
-- Policy + shell parity gates pin publish step fail-fast command adjacency (`set -euo pipefail`) inside publish step block
-- Policy + shell parity gates pin dry-check step fail-fast adjacency (`set -euo pipefail` + `scripts/publish/dockerfiles-drycheck.sh`) inside dry-check step block
-- Policy + shell parity gates pin upload step `if: always()` adjacency inside `Upload publish metadata` step block
-- Policy + shell parity gates pin publish provenance flag adjacency (`--provenance=true`) inside publish step block
-- Policy + shell parity gates pin publish SBOM flag adjacency (`--sbom=true`) inside publish step block
-- Policy + shell parity gates pin publish tag adjacency (`--tag "${image}:${TAG}"` + `--tag "${image}:latest"`) inside publish step block
-- Policy + shell parity gates pin publish announce-log adjacency (`echo "Publishing ${image}:${TAG}"`) inside publish step block
-- Policy + shell parity gates pin publish Dockerfile-flag adjacency (`--file "${dockerfile}"`) inside publish step block
-- Policy + shell parity gates pin publish build-context adjacency (`.`) inside publish step block
-- Policy + shell parity gates pin publish digest-assignment adjacency (`digest="$(jq -r ... "${metadata_file}")"`) inside `publish_if_exists`
-- Policy + shell parity gates pin publish mapping call-order adjacency (`winbuild -> packaging -> signing`) inside publish step block
-- Policy + shell parity gates pin publish OCI label value adjacency (source/revision/version/title using `REPO`, `SHA`, `TAG`, `image_name`) inside publish step block
-- Validated real-installer artifact gate in opt-in e2e path (`tests/e2e/validate-installer-artifact.sh`)
-- Core baseline planner/executor with idempotent operation store (`core/wbab_core.py`, `tools/wbabd`)
-- Core baseline extended with persistent step-level state and retry/resume semantics
-- Core store schema versioning + legacy migration hook (`schema_version: wbab.store.v1`)
-- Core daemon shim API surface for non-CLI adapters (`tools/wbabd api`, optional `tools/wbabd serve`)
-- Phase 1 token auth enforcement for `wbabd serve` (fail-closed startup + bearer-token `401` paths)
-- Phase 2 AuthZ allow-list enforcement (`WBABD_AUTHZ_POLICY_FILE`, `WBABD_PRINCIPAL`, `403` + `authz.denied`)
-- Phase 3 transport hardening (`wbabd serve` TLS/mTLS + request size/timeout limits)
-- Internal PKI bootstrap/rotation helper for daemon TLS assets (`scripts/security/daemon-pki.sh`)
-- Daemon deploy profile doc mapping PKI outputs to `wbabd serve` TLS/mTLS env vars (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- Daemon runtime examples for `systemd` and containerized private-network deployment (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- Deploy-time cert/token rotation playbook steps for zero-downtime daemon restarts (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- Machine-readable deploy templates for systemd/container env and authz policy (`deploy/daemon/`)
-- Daemon preflight validation helper for TLS/authz/token/limit startup checks (`scripts/security/daemon-preflight.sh`)
-- CI smoke check for daemon preflight against deploy templates (`tests/policy/test_daemon_preflight_templates_smoke.sh`)
-- Optional `wbabd serve --preflight` inline startup validation before listener bind
-- Preflight diagnostics summary surface (`agent-sandbox/state/preflight-status.json`, API `preflight_status`, HTTP `/preflight-status`)
-- Startup preflight trend counters (`agent-sandbox/state/preflight-counters.json`, `command.preflight` audit counters)
-- Startup preflight trend summary helper (`scripts/security/preflight-trend-report.sh`)
-- Daemon trend diagnostics API surface (`preflight_trend`, `GET /preflight-trend`)
-- Optional trend threshold gate helper + opt-in policy hook (`scripts/security/preflight-trend-threshold-check.sh`, `WBABD_POLICY_PREFLIGHT_TREND_GATE`)
-- Systemd/container trend-threshold health integration examples in operator runbook (`docs/DAEMON_DEPLOY_PROFILE.md`)
-- Cross-agent command/event audit stream (`agent-sandbox/state/audit-log.sqlite`, schema `wbab.audit.v1`)
-- Daemon API authn/authz + transport hardening plan (`docs/DAEMON_API_SECURITY_PLAN.md`)
-- Publish-image contract checks for tags/labels/digest metadata (`tests/policy/test_publish_image_contracts.sh`)
-- Publish workflow hardening/security gates (Hadolint + Trivy vulnerability gate + CycloneDX SBOM output)
-- WineBot submodule bootstrap integrated into active bring-up flow (`scripts/bootstrap-submodule.sh`, `README.md`, `docs/CONTEXT_BUNDLE.md`)
-- Minimal opt-in CI workflow to run policy suite with trend threshold gate enabled (`.github/workflows/policy-preflight-trend-gate-optin.yml`)
-- Commit-history policy documented and enforced by policy gate (`AGENTS.md`, `docs/CONTRACTS.md`, `tests/policy/test_commit_policy_documented.sh`)
-- TLA opt-in workflow artifact upload for formal-model review snapshot (`tla-formal-model-snapshot`)
-- TLA README example mapping invariants to policy assertions (`formal/tla/README.md`)
-- TLA release sign-off runbook note for baseline vs extended config (`docs/FORMAL_MODEL_HOWTO.md`)
-- TLA opt-in workflow step-summary file listing for artifact contents (`${GITHUB_STEP_SUMMARY}`)
-- TLA snapshot contract checks for required configs/docs in opt-in workflow policy
-- TLA release checklist item to review `tla-formal-model-snapshot` during sign-off
-- TLA policy linkage enforcing snapshot checklist language in context docs
-- TLA release-note snippet template for formal-model review completion (`docs/FORMAL_MODEL_HOWTO.md`)
-- TLA contract check enforcing consistent snapshot artifact naming across runbook/context docs
-- TLA runbook includes PR checklist example that references release-note snippet usage
-- TLA policy assertion pins release-note snippet workflow name (`tla-skeleton-contract-optin`)
-- TLA policy assertion pins PR checklist artifact name (`tla-formal-model-snapshot`)
-- TLA policy assertion pins PR checklist workflow name (`tla-skeleton-contract-optin`)
-- Contributor note describes when to include formal-model PR checklist line (`docs/FORMAL_MODEL_HOWTO.md`)
-- TLA policy assertion ensures contributor note references workflow + artifact names
-- CONTEXT_BUNDLE cross-links to formal-model contributor-note usage criteria
-- TLA policy assertion keeps contributor-note cross-link inside TLA CI execution notes section
-- CONTEXT_BUNDLE includes recommendation note for formal/retry-impacting PR checklist usage
-- TLA policy assertion keeps recommendation note adjacent to contributor-note cross-link
-- TLA policy check enforces consistent recommendation wording across context + contributor note
-- Contracts doc points to formal-model checklist usage guidance in context + how-to docs
-- TLA policy assertion enforces contracts guidance references both context + how-to docs
-- Contracts doc includes compact release-signoff checklist example for formal-model review
-- TLA policy assertion enforces contracts example includes workflow + artifact identifiers
-- CONTEXT_BUNDLE points to contracts checklist example for signoff copy/paste
-- TLA policy assertion keeps context contracts-note path + wording anchor stable
-- TLA policy assertion keeps context contracts-note adjacent to recommendation bullet
-- TLA extended-invariants policy includes compact contracts-to-context cross-reference checks
-- TLA policy parity check enforces contracts/how-to checklist example text alignment
-- CONTEXT_BUNDLE includes operator note to keep contracts/how-to checklist text synchronized
-- TLA policy assertion keeps context synchronization note adjacent to contracts checklist cross-reference
-- TLA policy assertion enforces synchronization note references both contracts + formal-model how-to docs
+Routine mechanical repository operations MUST NOT be returned to the maintainer merely because one interactive connector or UI action is unavailable.
 
-## Audit Findings (2026-02-13)
-### Correctness & Robustness
-- **Resource Management**: Implemented safer subprocess execution in `wbab_core.py` to mitigate memory exhaustion risks from large logs.
-- **Concurrency**: Verified `fcntl` locking for the daemon store. Recommended workspace-level locking for future multi-tenant scenarios.
-- **State Machines**: Mapped System (Pending->Running->Succeeded/Failed) and UI (Planning->Activation->Monitoring) lifecycles. Verified idempotency of all step transitions.
-- **Linting**: Fixed SC2215 warnings in new lint/test runners. All source files now pass `shellcheck` and repo-wide gates.
+For deterministic, already-authorized operations, prefer:
 
-### Performance & Scalability
-- **Strategy**: Pull-first policy remains the primary performance driver by avoiding redundant toolchain builds.
-- **Scalability**: Daemon architecture supports multiple local/remote clients. Recommended `asyncio` transition for high-concurrency needs.
+```text
+durable GitHub baton
+    -> repository-native deterministic script
+    -> local credentialed executor/agent when local GitHub authority is required
+    -> exact result/evidence written back to GitHub
+```
 
-### Security & Safety
-- **Verification**: Confirmed Bearer Token, AuthZ Policy, and TLS/mTLS implementations align with the Security Plan.
-- **Trade-offs**: Balanced high security (mTLS) with ease-of-use via automated PKI helpers.
+The current fallback is `scripts/ops/complete-issue-58-stack.py`.
 
-## What is not included (yet)
-- Model-based tests
-- Public release of toolchain images
+It is intentionally fail-closed and idempotent where practical. It verifies exact PR heads/base state, review/change-request state, checks, and mergeability before mutation.
 
-## Dependency Updates (2026-02-16)
-- **zeroconf**: Pinned to `0.148.0` in `requirements.txt`.
-- **WineBot**: Pinned to `v0.9.5` across all toolchain defaults.
-- **Project Organization**: Implemented `agent-sandbox/`, `agent-privileged/`, and `manual/` root directory structure (see `ORGANIZATION_POLICY.md`).
-- **Unified Linter**: Implemented containerized linting (`tools/linter/Dockerfile`) enforcing `shellcheck`, `ruff`, `hadolint`, and `trivy` across local and CI/CD environments.
+### Stack-safe integration order
 
-*(Next steps are consolidated in the **Next Steps** section at top of this document.)*
+Do **not** squash #59 to `main` first and then retarget #60. #60 is stacked on #59's commit ancestry; squashing the parent first can destroy the shared ancestry and make the child appear to reintroduce parent changes.
+
+The deterministic executor therefore performs:
+
+```text
+validated PR #60 exact head
+    -> mark #60 ready
+    -> squash #60 into its existing parent branch (#59 head branch)
+    -> observe the new combined #59 head
+    -> require a NEW ordinary CI run on that combined head
+    -> require a NEW Product Qualification run on that combined head
+    -> mark #59 ready
+    -> squash the fully revalidated #59 once into main
+    -> verify main advanced
+    -> write exact evidence back to #58
+```
+
+This keeps the stack ancestry intact until the combined candidate has been independently validated and preserves the repository's normal squash-style final integration into `main`.
+
+The script requires `--execute` plus the exact #60 head supplied by the durable #58 baton. That guard prevents a stale local session from silently integrating a changed candidate.
+
+## Current authority boundary
+
+The maintainer has delegated the routine #58 stack-integration mechanics to automation/local-agent execution. Human manual clicking is **not required** for:
+
+- marking #60 ready for review;
+- merging #60 into the existing #59 parent branch after its exact checks remain green;
+- waiting for and evaluating the new combined-head CI and Product Qualification on #59;
+- marking #59 ready for review;
+- merging the revalidated combined #59 to `main`;
+- writing the resulting exact evidence back to #58.
+
+The executor MUST stop for:
+
+- unexpected main/head/base drift;
+- failed or missing required validation;
+- changes requested or unresolved review threads;
+- merge conflicts;
+- new credential/authority requirements;
+- release/publication;
+- production signing credentials;
+- destructive/irreversible history operations;
+- unresolved security/licensing/value-classification boundaries.
+
+## Resume checkpoint
+
+Authoritative tracker: **issue #58**.  
+Parent PR: **#59**.  
+Stacked P3 PR: **#60**.  
+Current next executor: **local deterministic script, optionally supervised by the local agent**.  
+Work packet: the latest #58 integration-baton comment.  
+Command: `python scripts/ops/complete-issue-58-stack.py --execute --expected-child-head <exact-head-from-#58-baton>`  
+Human input required for this routine integration: **no**.  
+P4 remains out of scope until deliberately opened as a separate release-qualification workset.

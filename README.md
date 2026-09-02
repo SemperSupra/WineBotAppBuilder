@@ -1,65 +1,147 @@
 # WineBotAppBuilder (WBAB)
 
-A production-ready, containerized toolchain for building, packaging, signing, and testing Windows applications on Linux.
+A containerized toolchain for building, packaging, signing, and testing Windows applications from Linux.
 
-WBAB is designed for **deterministic automation**, providing a unified CLI that ensures the same environment is used across developer machines, CI/CD pipelines, and AI agents.
+## Current qualification status
 
-## Core Features
-- **Containerized Build:** Cross-compile Win32/Win64 apps using a stable toolchain (`wbab build`).
-- **Integrated Linting:** Run project-specific static analysis within the toolchain (`wbab lint`).
-- **Unit Testing:** Execute unit tests (including Windows binaries via Wine) (`wbab test`).
-- **Standardized Packaging:** Create NSIS installers in a controlled environment (`wbab package`).
-- **Secure Signing:** Integrated support for self-signed dev certs and production PKI (`wbab sign`).
-- **Headless Smoke Testing:** Run installers in WineBot (Docker-based Wine) and verify contents automatically (`wbab smoke`).
-- **Idempotent Daemon:** A core engine that handles retries and prevents redundant operations (`wbabd`).
-- **Network Discovery:** Zero-configuration local network discovery using mDNS (`wbab discover`).
-- **Agent-Ready:** Structured JSON planning (`wbab plan`) and audit logs for AI-driven development.
-- **Dev Container:** Full-featured VS Code development environment with all tools pre-installed.
+WBAB now has a proven **candidate-source first-party product qualification** path: candidate tool images are built, the real validation app is compiled and tested, a real NSIS installer is produced, development signing is performed and independently verified, the installer is exercised in WineBot, the installed CLI is executed, and an exact deterministic postcondition is verified.
 
-## Quick Start
+That is materially stronger than the repository’s historical mock/fixture evidence, but it is **not yet release qualification**. Exact published image digests and release artifacts have not yet been qualified as a release set, so WBAB should not be described generically as `Production Stable` from the current evidence alone.
 
-### 1. Prerequisites
-Ensure you have Docker and the GitHub CLI installed.
+The 2026-09-02 testing corrective program is tracked in [issue #58](https://github.com/SemperSupra/WineBotAppBuilder/issues/58). The accepted finding is in `docs/findings/testing-value-red-team-2026-09-02.md`, the executable plan and P3 gate inventory are in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`, and the compact working state is in `docs/STATE.md`.
 
-### 2. Installation
+## What WBAB provides
+
+- **Containerized Windows toolchain:** MinGW/CMake/Make-based build environment.
+- **Containerized lint and test runners.**
+- **NSIS packaging environment.**
+- **Development signing:** real `osslsigncode` signing plus development-certificate helpers.
+- **WineBot validation:** installer execution, installed-application execution, screenshots/artifacts, and deterministic output extraction/verification.
+- **Idempotent daemon core:** persistent operation state, retry/resume, audit, AuthN/AuthZ/TLS surfaces.
+- **Structured planning:** `wbab plan` JSON for humans, automation, and agents.
+- **First-party validation workload:** `samples/validation-app` includes a real DLL, CLI, GUI, tests, and NSIS installer.
+- **Candidate product qualification:** `tests/e2e/product-qualification.sh` binds execution to exact candidate source and retains evidence.
+
+## Current command semantics
+
+Ordinary verbs are truthful by default:
+
+- `wbab build` -> real image-native build execution;
+- `wbab package` -> real image-native packaging;
+- `wbab sign` -> real development-certificate signing;
+- fixture execution must be selected explicitly;
+- custom execution must be selected explicitly;
+- contradictory mode settings fail closed;
+- `wbab plan` exposes the same resolved execution mode/command used by execution.
+
+## Evidence vocabulary
+
+Do not treat all green checks as equivalent:
+
+- `STATIC_CONTRACT` — source/config/schema shape only.
+- `MOCKED_BEHAVIOR` — behavior with a material boundary simulated.
+- `INFRASTRUCTURE_SMOKE` — real infrastructure/runtime without the complete product postcondition.
+- `PRODUCT_QUALIFICATION` — real first-party product vertical with an independent deterministic postcondition.
+- `RELEASE_QUALIFICATION` — exact published images/artifacts qualified by immutable identities.
+
+A weaker evidence class never implies a stronger class, and a PASS is tied to the exact candidate that actually executed.
+
+## Quick start
+
+### Prerequisites
+
+- Docker with Compose v2
+- Git
+- Python 3 for daemon/discovery features
+
+### Clone and initialize the WineBot submodule
+
 ```bash
 git clone https://github.com/SemperSupra/WineBotAppBuilder.git
-cd WineBotAppBuilder/workspace
+cd WineBotAppBuilder
 ./scripts/bootstrap-submodule.sh
+./tools/wbab doctor
 ```
 
-### 3. Initialize a New Project
-```bash
-# Initialize a new policy-compliant project
-./tools/wbab init "My Awesome App" /path/to/my-project
-```
+There is no required `workspace/` directory and the current CLI does not implement an `init` verb.
 
-### 4. Usage (The WBAB Pipeline)
+## Current commands
+
 ```bash
-# Run operations through the daemon (with auto-discovery)
+./tools/wbab doctor
+./tools/wbab discover
+./tools/wbab plan build samples/validation-app
+./tools/wbab lint samples/validation-app
+./tools/wbab test samples/validation-app
 ./tools/wbab build samples/validation-app
 ./tools/wbab package samples/validation-app
+./tools/wbab sign samples/validation-app
+./tools/wbab smoke <installer.exe>
 ```
 
-## Core philosophy & Reliability
-- **Non-Root Runtime**: All toolchain containers run as restricted user `wbab` (UID 1000).
-- **SQLite Storage**: All operation state and audit logs use SQLite for persistence and atomicity.
-- **Remote RCE Guard**: The core engine directly constructs `docker run` commands; host-side scripts are not used for execution in production.
-- **Workspace Isolation**: Built-in cleanup of `out/` and `dist/` directories ensures no stale artifacts pollute new builds.
+## Current validation architecture
 
-## Documentation for Humans
-- **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
-- **[Contracts](docs/CONTRACTS.md):** Definition of stable CLI verbs and environment variables.
-- **[Daemon Security](docs/DAEMON_API_SECURITY_PLAN.md):** Security architecture and deployment profiles.
+Ordinary PR CI is intentionally compact:
 
-## Documentation for Agents
-- **[AGENTS.md](AGENTS.md):** The primary playbook for AI agents (context windows, commit policies).
-- **[CONTEXT_BUNDLE.md](docs/CONTEXT_BUNDLE.md):** Technical deep-dive for establishing agent context.
-- **[Formal Model](docs/FORMAL_MODEL_HOWTO.md):** Guidance on the TLA+ idempotency specifications.
+1. `lint`
+2. `shell-unit` — bounded shell tests plus retained mocked integration behavior
+3. `contract`
+4. `policy`
+5. `python-unit`
 
-## Project Policy
-- **Pull-First:** By default, WBAB pulls official images from `ghcr.io/sempersupra`. Local builds of the toolchain are disabled unless `WBAB_ALLOW_LOCAL_BUILD=1` is set.
-- **Atomic Commits:** One commit per implementation change is strictly enforced for traceability.
+The former standalone mocked `e2e-smoke` job was consolidated into `shell-unit`; the mocked build→package→sign→smoke test remains, but it is not represented as product proof.
 
----
-*For historical bring-up notes, see [docs/BRINGUP.md](docs/BRINGUP.md).*
+Product Qualification is a separate higher-fidelity validator. It runs on relevant product-path changes and can also be invoked manually. It is more expensive by design and should not be triggered by unrelated documentation/test-policy-only changes.
+
+The opt-in `e2e-real` workflow remains an `INFRASTRUCTURE_SMOKE` path unless its invocation supplies the complete installer/postcondition needed for a stronger claim.
+
+## Qualification direction
+
+The current first-party product path is:
+
+```text
+exact candidate source
+  -> candidate-source winbuild image
+  -> real Validation app binaries + tests
+  -> candidate-source packager image
+  -> real NSIS installer
+  -> candidate-source signer image
+  -> real development signing + independent signature verification
+  -> real WineBot installation
+  -> execute installed ValidationCLI.exe
+  -> extract deterministic output
+  -> exact postcondition assertion
+```
+
+The next distinct phase is **release qualification**, not more ordinary test ceremony:
+
+```text
+exact published image digests
+  -> exact release artifact hashes
+  -> first-party product qualification against those immutable identities
+  -> selected external compatibility target(s)
+```
+
+## Core reliability principles
+
+- Pull-first from approved GHCR images for ordinary consumption; candidate-source image construction is used when qualification/development requires it.
+- No secrets/private keys in the repository.
+- Containers run non-root where designed.
+- Durable GitHub/repository evidence is authoritative; chat/agent session state is not.
+- Deterministic checks should run in repository-native automation rather than consume repeated human/agent attention.
+- Validation evidence must bind to exact source/artifact identities where material.
+- A recurring check earns maintenance cost only when its failure changes a real engineering decision or uniquely protects a material invariant.
+- Replacement evidence is established before a legacy check is removed.
+
+## Documentation
+
+- `docs/TESTING_CORRECTIVE_ACTION_PLAN.md` — active testing correction program and as-built P3 gate inventory.
+- `docs/findings/testing-value-red-team-2026-09-02.md` — accepted red-team finding.
+- `docs/STATE.md` — compact current project state and next action.
+- `docs/USER_GUIDE.md` — user-oriented reference; verify against current command contracts when editing.
+- `docs/CONTRACTS.md` — CLI/environment contracts.
+- `docs/DAEMON_API_SECURITY_PLAN.md` — daemon security architecture.
+- `AGENTS.md` / `docs/CONTEXT_BUNDLE.md` — agent working context and interruption-resumption projection.
+- `docs/FORMAL_MODEL_HOWTO.md` — TLA+ model guidance.
+
+For historical bring-up details, use Git history rather than treating old state claims as current qualification evidence.

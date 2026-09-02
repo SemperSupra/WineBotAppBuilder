@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Containerized Windows build runner.
-# Default policy is pull-first and no local image builds unless explicitly enabled.
+# Default policy is pull-first, no local image builds unless explicitly enabled,
+# and real build execution unless fixture/custom mode is explicitly selected.
 #
 # Usage:
 #   ./tools/winbuild-build.sh [project-dir]
@@ -12,7 +13,8 @@ set -euo pipefail
 #   WBAB_TAG (default v0.3.7)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_TOOLCHAIN_DOCKERFILE (default tools/winbuild/Dockerfile)
-#   WBAB_BUILD_CMD (default: run fixture build script in tools/winbuild/)
+#   WBAB_BUILD_MODE (real|fixture|custom; default real)
+#   WBAB_BUILD_CMD (required for custom mode; legacy override implies custom when mode is unset)
 
 PROJECT_DIR="${1:-.}"
 if [[ ! -d "${PROJECT_DIR}" ]]; then
@@ -30,7 +32,42 @@ TOOLCHAIN_DOCKERFILE="${WBAB_TOOLCHAIN_DOCKERFILE:-${ROOT_DIR}/tools/winbuild/Do
 LOCAL_IMAGE="${TOOLCHAIN_IMAGE}:local"
 REMOTE_IMAGE="${TOOLCHAIN_IMAGE}:${TOOLCHAIN_TAG}"
 
-BUILD_CMD="${WBAB_BUILD_CMD:-/workspace/tools/winbuild/build-fixture.sh}"
+BUILD_MODE="${WBAB_BUILD_MODE:-}"
+if [[ -z "${BUILD_MODE}" ]]; then
+  if [[ -n "${WBAB_BUILD_CMD:-}" ]]; then
+    BUILD_MODE="custom"
+  else
+    BUILD_MODE="real"
+  fi
+fi
+
+case "${BUILD_MODE}" in
+  real)
+    if [[ -n "${WBAB_BUILD_CMD:-}" ]]; then
+      echo "ERROR: WBAB_BUILD_CMD requires WBAB_BUILD_MODE=custom" >&2
+      exit 2
+    fi
+    BUILD_CMD="wbab-build"
+    ;;
+  fixture)
+    if [[ -n "${WBAB_BUILD_CMD:-}" ]]; then
+      echo "ERROR: WBAB_BUILD_CMD requires WBAB_BUILD_MODE=custom" >&2
+      exit 2
+    fi
+    BUILD_CMD="wbab-build-fixture"
+    ;;
+  custom)
+    if [[ -z "${WBAB_BUILD_CMD:-}" ]]; then
+      echo "ERROR: WBAB_BUILD_MODE=custom requires WBAB_BUILD_CMD" >&2
+      exit 2
+    fi
+    BUILD_CMD="${WBAB_BUILD_CMD}"
+    ;;
+  *)
+    echo "ERROR: invalid WBAB_BUILD_MODE '${BUILD_MODE}' (expected real|fixture|custom)" >&2
+    exit 2
+    ;;
+esac
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2
@@ -53,6 +90,7 @@ fi
 
 mkdir -p "${PROJECT_DIR_ABS}/out"
 
+echo "wbab-build: mode=${BUILD_MODE} image=${IMAGE_TO_RUN}"
 docker run --rm \
   -v "${PROJECT_DIR_ABS}:/workspace" \
   -w /workspace \

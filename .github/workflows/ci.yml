@@ -34,17 +34,22 @@ jobs:
 
       - name: Run containerized lint
         run: |
-          export WBAB_ALLOW_LOCAL_BUILD=0
+          # PR/main validation must execute lint against the candidate even when
+          # the published linter image is unavailable to an anonymous runner.
+          # Local candidate-source image construction is deterministic and is a
+          # more faithful validator than failing before lint executes.
+          export WBAB_ALLOW_LOCAL_BUILD=1
           chmod +x scripts/lint.sh scripts/lint-container.sh
           ./scripts/lint.sh
 
   shell-unit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: false
-      - name: Run shell unit tests (mocked)
+      - name: Run bounded shell and mocked integration tests
         run: |
           chmod +x tests/shell/run.sh
           ./tests/shell/run.sh
@@ -100,14 +105,3 @@ jobs:
           name: coverage-report
           path: coverage_html/
           if-no-files-found: warn
-
-  e2e-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-      - name: Run mocked e2e smoke pipeline
-        run: |
-          chmod +x tests/e2e/run.sh
-          ./tests/e2e/run.sh

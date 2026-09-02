@@ -20,13 +20,16 @@ chmod +x "${TMP}/mockbin/docker"
 export PATH="${TMP}/mockbin:${PATH}"
 export MOCK_LOG="${TMP}/mock.log"
 export WBAB_ALLOW_LOCAL_BUILD="0"
+unset WBAB_BUILD_MODE WBAB_BUILD_CMD
 
-bash "${TMP}/tools/winbuild-build.sh" "${TMP}/project"
-
+output="$(bash "${TMP}/tools/winbuild-build.sh" "${TMP}/project")"
 log="$(cat "${MOCK_LOG}")"
 
 echo "${log}" | grep -q "DOCKER pull " || { echo "Expected docker pull" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER run " || { echo "Expected docker run" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER build " && { echo "Did not expect docker build" >&2; exit 1; }
+echo "${log}" | grep -q "bash -lc wbab-build" || { echo "Expected real wbab-build command by default" >&2; exit 1; }
+echo "${log}" | grep -q "wbab-build-fixture" && { echo "Did not expect fixture build command by default" >&2; exit 1; }
+echo "${output}" | grep -q "mode=real" || { echo "Expected explicit real-mode status" >&2; exit 1; }
 
-echo "OK: build pull-first/no-build policy satisfied"
+echo "OK: build pull-first/no-build policy uses real execution by default"

@@ -33,8 +33,8 @@ echo "[lint] ruff (project-owned python)"
 # Use internal cache to avoid permission issues with host-mounted workspace
 ruff check --cache-dir /tmp/ruff_cache --exclude tools/WineBot .
 
-echo "[lint] ruff format (coding style)"
-ruff format --check --cache-dir /tmp/ruff_cache --exclude tools/WineBot .
+echo "[lint] ruff format (coding style; exact diff on failure)"
+ruff format --diff --cache-dir /tmp/ruff_cache --exclude tools/WineBot .
 
 echo "[lint] mypy (static type checking)"
 # Use internal cache to avoid permission issues
