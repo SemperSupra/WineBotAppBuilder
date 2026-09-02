@@ -1,56 +1,86 @@
-# WBAB Reliability & Correctness Backlog
+# WBAB Backlog — Retired
 
-## Correctness & Reliability
-- [x] **Item 1: Atomic Store Updates**: Move from truncate+write to write-and-rename for `OperationStore` to prevent data corruption.
-- [x] **Item 2: Unbounded Git Timeouts**: Implement configurable timeouts for all Git operations in `GitSourceManager`.
-- [x] **Item 3: Artifact Rollback**: Ensure `out/` and `dist/` directories are cleaned up on step failure to prevent partial artifact pollution.
+Status: **feature-frozen / retiring**  
+Authoritative retirement tracker: #61  
+Retirement plan: `RETIREMENT.md`
 
-## Performance & UX
-- [x] **Item 1: SQLite for Persistence**: Implemented SQLite-backed `OperationStore` and `AuditLog` for better scalability.
-- [x] **Item 2: Worker Pool Control**: Implemented `asyncio.Semaphore` in `wbabd` to limit concurrent tasks.
-- [x] **Item 3: Discovery Caching**: Implemented local caching of discovered daemon URLs in `wbab` CLI.
-- [x] **Item 4: Configurable Backoff**: Expose `WBAB_RETRY_BACKOFF_BASE` and `WBAB_RETRY_BACKOFF_MAX` for fine-tuning retry throttling.
-- [ ] **Item 5: CI/CD Trivy Caching**: Implement `actions/cache` in GitHub workflows to persist the vulnerability database across runs. (Low Priority)
-- [ ] **Item 6: mDNS Metadata Enhancement**: Add `version`, `auth_mode`, and `tls_enabled` to mDNS TXT records for better CLI pre-flight checks. (Deferred)
-- [ ] **Item 7: Git Mirrors**: Implement persistent Git mirrors in `agent-sandbox` to speed up source preparation. (Deferred)
+This file is retained as historical context. It is **not an active feature roadmap**.
 
-## Security & Safety
-- [x] **Item 1: Strict Path Jailing**: Implemented `Path.resolve()` checks in `Executor` to prevent directory traversal.
-- [x] **Item 3: Non-Root Containers**: Updated all Dockerfiles to run as non-root user `wbab`.
-- [x] **Item 5: Remote RCE Guard**: Shifted `Executor` to direct `docker run` execution, eliminating dependency on host-side shell scripts for core verbs.
-- [x] **Item 8: TLS by Default**: Enforce HTTPS for all daemon communication using the internal PKI.
-- [x] **Item 9: Docker Socket Protection**: Remove `docker.sock` mount from linter; linter tools only do filesystem-level scans.
+The 2026-09-02 red-team concluded that WBAB should not continue growing as a standalone build/orchestration platform. Open platform-expansion work is therefore cancelled or moved conceptually to narrower successor owners. Do not reopen an item here merely because the historical need still exists.
 
-## Test Engineering
-- [x] **Item 10: Modernize Shell Unit Tests**: Transitioned `tests/shell/` and `tests/e2e/` to support containerized verification and Remote RCE Guard.
-- [x] **Item 11: Python Unit Tests in CI**: Added `python-unit` job to `ci.yml` running `test_scm.py` and `test_wbabd_concurrency.py` with code coverage.
-- [x] **Item 12: Code Coverage Measurement**: Added `coverage.py` to CI pipeline generating HTML reports uploaded as CI artifacts.
-- [x] **Item 13: SBOM Validation**: Added `cyclonedx-cli` to linter container; SBOM is validated after generation during lint.
-- [x] **Item 14: Image Vulnerability Scanning**: Added `trivy image` scan to release workflow, scanning each image after publish.
-- [x] **Item 15: Build Output Structure Contract Test**: Added `tests/contract/test_build_output_structure.sh` validating build-real.sh output paths.
-- [x] **Item 16: CLI UX Contract Tests**: Added `tests/contract/test_cli_ux.sh` validating help text, error messages, and command behavior.
-- [x] **Item 17: Dependabot Configuration**: Added `.github/dependabot.yml` tracking pip, docker, and GitHub Actions dependencies weekly.
+## Completed historical reliability work
 
-## Deferred Testing Improvements (GitHub Issues)
-- [#20](https://github.com/SemperSupra/WineBotAppBuilder/issues/20) — **SLSA Build Provenance**: Add cryptographic attestation to release artifacts.
-- [#21](https://github.com/SemperSupra/WineBotAppBuilder/issues/21) — **Local CI Workflow Testing**: Add nektos/act config for running GitHub Actions locally.
-- [#22](https://github.com/SemperSupra/WineBotAppBuilder/issues/22) — **Property-Based Testing**: Add Hypothesis for fuzz-testing store/audit operations.
+The following work was implemented before retirement and remains part of the historical final state:
 
-## Cross-Project Integration (2026-07-05 Analysis)
-### WineBot → WBAB Improvements
-- [ ] **Item W1: WineBot v0.9.5→v0.9.7 Upgrade**: Bump default tag across 6+ files. Requires validating v0.9.7's new recording API contract, resource guardrails, and temporal correctness features work with WBAB's existing smoke pipeline.
-- [ ] **Item W2: Request Readiness Endpoint from WineBot**: Add `GET /ready` to WineBot API for deterministic smoke startup sequencing. WBAB would poll before exec-ing installer commands.
-- [ ] **Item W3: Request Install API from WineBot**: Structured `POST /apps/install` replacing multi-step compose-exec installer dance with single API call returning exit code + file manifest.
-- [ ] **Item W4: Request File Extraction API from WineBot**: `POST /files/read` replacing fragile `docker cp` + path-guessing logic in winebot-smoke.sh.
-- [ ] **Item W5: Request User-Mode Cert Trust API from WineBot**: Single `POST /certs/trust` replacing dual-user (root+winebot) exec in winebot-trust-dev-cert.sh.
-- [ ] **Item W6: Request CI Smoke Profile from WineBot**: `ci-smoke` compose profile that auto-captures evidence and produces structured `smoke-result.json`.
-- [ ] **Item W7: Request Versioned API Contract from WineBot**: `GET /version` returning capabilities list for compatibility detection.
+- atomic operation-store updates;
+- bounded Git timeouts;
+- artifact cleanup/rollback behavior;
+- SQLite persistence;
+- worker-pool concurrency control;
+- discovery caching;
+- configurable retry backoff;
+- strict path jailing;
+- non-root containers;
+- host-side remote-RCE reduction;
+- TLS/authentication/authorization surfaces;
+- Docker-socket reduction in linting;
+- shell/Python test modernization;
+- coverage/SBOM/vulnerability checks;
+- build-output and CLI contract validation;
+- Dependabot configuration;
+- Go toolchain support;
+- recursive submodule support;
+- WinInspect-style project detection.
 
-### WBAB → WinInspect Improvements
-- [ ] **Item B1: WinInspect v0.4.0 Build Verification**: WinInspect v0.4.0 includes Wine 10.0 compatibility fixes with proven daemon stability on Wine (both platforms, 60s+ uptime). The MinGW cross-compilation path in `tools/winbuild/Dockerfile` may now be sufficient. Verify by attempting a build with WBAB's existing toolchain before pursuing MSVC options.
-- [ ] **Item B2: C++ Linting in Linter Image**: Add `clang-format` and `clang-tidy` to `tools/linter/Dockerfile` for WinInspect's C++ codebase. Add C++ file detection to `scripts/lint-container.sh`. (Deferred — blocked on WinInspect build verification)
-- [x] **Item B3: Go Toolchain in Winbuild Image**: Added `golang-go` package for WinInspect's Go components.
-- [ ] **Item B4: Daemon-Aware Test Lifecycle**: Extend `test-real.sh` with pre/post command hooks for daemon-based test suites (required for WinInspect's daemon→client test pattern).
-- [x] **Item B5: Recursive Submodule Support**: Added `WBAB_GIT_CLONE_RECURSIVE` env var to `GitSourceManager.prepare_source()`.
-- [ ] **Item B6: WinInspect Contract Tests**: Add `tests/contract/test_wininspect_pipeline.sh` validating plan JSON shape for C++/CMake project type.
-- [x] **Item B7: Project Type Auto-Detection**: Extended `wbab doctor` to recognize WinInspect-style projects (CMakeLists.txt + clients/ + daemon/) with targeted diagnostics.
+Git history and closed issues remain the authority for implementation detail.
+
+## Cancelled WBAB-specific work
+
+These items are **not planned for WBAB** unless the narrow resurrection criterion in `RETIREMENT.md` is satisfied by a named real consumer:
+
+- Trivy database caching and other CI optimization whose only consumer is WBAB;
+- mDNS metadata expansion;
+- persistent Git mirrors in WBAB;
+- WineLib target/platform expansion;
+- cloud/remote Windows test-lab orchestration;
+- declarative Windows dependency "vending machine";
+- WBAB-owned app-store/update-repository generation;
+- `wbab init` project wizard;
+- WBAB-owned cloud-HSM/PKCS#11 signing abstraction;
+- WBAB web operations dashboard;
+- first-class Go/SupraGoFlow integration as a generalized WBAB project type;
+- additional WBAB SLSA/attestation infrastructure;
+- local-Action simulation infrastructure;
+- additional property/fuzz testing for WBAB's retiring orchestration core;
+- WinInspect-specific MinGW/OpenSSL/toolchain work;
+- WinInspect daemon-lifecycle hooks/contracts inside WBAB;
+- WBAB release-automation repair for future WBAB releases;
+- P4 release qualification as a WBAB product-development phase.
+
+Where the underlying need still matters, use the successor owner:
+
+- product-local native Windows CI;
+- Windows Package Foundry for release/trust/distribution;
+- WinBot for native interactive Windows automation;
+- controlled Windows runner/VM for licensed or legacy toolchains;
+- WineBot for Wine runtime/compatibility validation;
+- winebot-contracts for shared API/conformance semantics.
+
+## Cross-project requests discovered during WBAB development
+
+Historical WineBot capability requests such as readiness, structured install, file extraction, certificate trust, CI-smoke receipts, or version/capability reporting should be evaluated **in WineBot on their own merits**. They are not WBAB retirement blockers and should not be implemented merely to preserve WBAB.
+
+Historical WinInspect requests are superseded by WinInspect's native Windows CI/release path. WinInspect removed its WBAB submodule through PR #366 after exact-head installer-lifecycle validation passed.
+
+## Active work
+
+The only active WBAB work is retirement work tracked in #61:
+
+1. land the completed #58 truthfulness stack through PR #63;
+2. land retirement documentation/state against the truthful `main`;
+3. verify no release/image consumer remains;
+4. disable unnecessary publication and optional workflows;
+5. preserve useful lessons/evidence;
+6. enter cooling-off and archive when #61 completion criteria are met.
+
+Any proposed new backlog item must first explain why the requirement cannot be satisfied more cheaply by the preferred successor architecture and why it is necessary during retirement.
