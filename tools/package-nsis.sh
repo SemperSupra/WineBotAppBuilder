@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Containerized packaging runner (NSIS-first).
-# Default policy is pull-first and no local image builds unless explicitly enabled.
+# Default policy is pull-first, no local image builds unless explicitly enabled,
+# and real packaging unless fixture/custom mode is explicitly selected.
 #
 # Usage:
 #   ./tools/package-nsis.sh [project-dir]
@@ -12,7 +13,8 @@ set -euo pipefail
 #   WBAB_TAG (default v0.3.7)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_PACKAGER_DOCKERFILE (default tools/packaging/Dockerfile)
-#   WBAB_PACKAGE_CMD (default runs fixture packaging script in tools/packaging/)
+#   WBAB_PACKAGE_MODE (real|fixture|custom; default real)
+#   WBAB_PACKAGE_CMD (required for custom mode; legacy override implies custom when mode is unset)
 
 PROJECT_DIR="${1:-.}"
 if [[ ! -d "${PROJECT_DIR}" ]]; then
@@ -30,7 +32,42 @@ PACKAGER_DOCKERFILE="${WBAB_PACKAGER_DOCKERFILE:-${ROOT_DIR}/tools/packaging/Doc
 LOCAL_IMAGE="${PACKAGER_IMAGE}:local"
 REMOTE_IMAGE="${PACKAGER_IMAGE}:${PACKAGER_TAG}"
 
-PACKAGE_CMD="${WBAB_PACKAGE_CMD:-/workspace/tools/packaging/package-fixture.sh}"
+PACKAGE_MODE="${WBAB_PACKAGE_MODE:-}"
+if [[ -z "${PACKAGE_MODE}" ]]; then
+  if [[ -n "${WBAB_PACKAGE_CMD:-}" ]]; then
+    PACKAGE_MODE="custom"
+  else
+    PACKAGE_MODE="real"
+  fi
+fi
+
+case "${PACKAGE_MODE}" in
+  real)
+    if [[ -n "${WBAB_PACKAGE_CMD:-}" ]]; then
+      echo "ERROR: WBAB_PACKAGE_CMD requires WBAB_PACKAGE_MODE=custom" >&2
+      exit 2
+    fi
+    PACKAGE_CMD="wbab-package"
+    ;;
+  fixture)
+    if [[ -n "${WBAB_PACKAGE_CMD:-}" ]]; then
+      echo "ERROR: WBAB_PACKAGE_CMD requires WBAB_PACKAGE_MODE=custom" >&2
+      exit 2
+    fi
+    PACKAGE_CMD="wbab-package-fixture"
+    ;;
+  custom)
+    if [[ -z "${WBAB_PACKAGE_CMD:-}" ]]; then
+      echo "ERROR: WBAB_PACKAGE_MODE=custom requires WBAB_PACKAGE_CMD" >&2
+      exit 2
+    fi
+    PACKAGE_CMD="${WBAB_PACKAGE_CMD}"
+    ;;
+  *)
+    echo "ERROR: invalid WBAB_PACKAGE_MODE '${PACKAGE_MODE}' (expected real|fixture|custom)" >&2
+    exit 2
+    ;;
+esac
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2
@@ -53,6 +90,7 @@ fi
 
 mkdir -p "${PROJECT_DIR_ABS}/dist"
 
+echo "wbab-package: mode=${PACKAGE_MODE} image=${IMAGE_TO_RUN}"
 docker run --rm \
   -v "${PROJECT_DIR_ABS}:/workspace" \
   -w /workspace \
