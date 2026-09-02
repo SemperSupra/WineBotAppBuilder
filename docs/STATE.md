@@ -2,133 +2,142 @@
 
 **Current date:** 2026-09-02  
 **Current corrective program:** issue #58 — capability-driven product qualification  
-**Pre-correction main baseline:** `bd79d45ba20cc70cae9da7625c6b3605c7176655`
+**Pre-correction main baseline:** `bd79d45ba20cc70cae9da7625c6b3605c7176655`  
+**Current corrective branch:** `corrective/testing-capability-qualification`  
+**Last implemented candidate:** `99dd3d7d8c98cd7d28d2715fedbe64eae056bb82`
 
 ## Current status
 
-WBAB has substantial real implementation in its container images, daemon, packaging/signing helpers, WineBot integration, and release automation. However, the 2026-09-02 testing red-team established that the repository's recurring validation claims exceed the evidence produced by the normal test path.
+WBAB is an implemented toolchain candidate under capability qualification. The prior `Production Stable` label is historical and is not accepted as current product-qualification evidence.
 
-Accordingly, the prior `Production Stable` label is **not current qualification evidence**. Until the corrective program establishes a real product vertical, describe WBAB as:
+The 2026-09-02 testing red-team is accepted by the maintainer. Durable records:
 
-> implemented toolchain candidate under capability qualification.
+- issue #58;
+- `docs/findings/testing-value-red-team-2026-09-02.md`;
+- `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`.
 
-Historical state remains available in Git history, including the full pre-correction `docs/STATE.md` at baseline `bd79d45ba20cc70cae9da7625c6b3605c7176655`. This compact file is the active working-state projection; it intentionally does not repeat the old accumulating accomplishment/checklist log.
+Historical state remains available in Git history, including the pre-correction `docs/STATE.md` at `bd79d45ba20cc70cae9da7625c6b3605c7176655`. This file is intentionally a compact active working-set projection rather than an accumulating accomplishment log.
 
-## Accepted finding
+## Evidence semantics
 
-Maintainer concurrence: the current test program is overweight on mocked Docker/fixture pipelines, source-text/policy grep checks, workflow-shape ceremony, and repetitive structural contracts relative to direct proof of the product's real capability.
+- `STATIC_CONTRACT` — source/config/schema shape only.
+- `MOCKED_BEHAVIOR` — behavior with one or more material boundaries simulated.
+- `INFRASTRUCTURE_SMOKE` — real infrastructure/runtime without the complete product postcondition.
+- `PRODUCT_QUALIFICATION` — real first-party product vertical plus independent deterministic postcondition.
+- `RELEASE_QUALIFICATION` — exact published images/artifacts identified immutably and qualified.
 
-Durable records:
+Never silently promote a weaker evidence class into a stronger PASS.
 
-- `docs/findings/testing-value-red-team-2026-09-02.md`
-- `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`
-- issue #58
+## P0 — truth/evidence alignment
 
-## What current recurring validation does prove
+Status: **implemented on corrective branch**.
 
-Useful decision evidence currently includes:
+Completed:
 
-- daemon operation-state/idempotency/retry/resume behavior under controlled workers;
-- selected AuthN/AuthZ/config behavior;
-- pure Python/core logic and property tests;
-- CLI dispatch/contracts;
-- pull-first/no-local-build orchestration policy;
-- static release/policy/configuration assertions;
-- mocked traversal of build -> package -> sign -> smoke.
+- accepted finding and corrective plan;
+- README no longer claims current production qualification and no longer instructs users to enter a nonexistent `workspace/` directory or use a nonexistent `init` verb;
+- AGENTS playbook states the evidence taxonomy and decision-value rule;
+- organization policy reflects the actual root-level source layout;
+- current fixture defaults for host `build/package/sign` wrappers are explicitly documented;
+- current normal `e2e-smoke` is classified as mocked behavior and legacy `e2e-real` as infrastructure smoke by default.
 
-## What current recurring validation does **not** prove
+Exact commits:
 
-A green normal CI run does not by itself prove that the exact candidate:
+- `48022cc4909cb15e00ab531e0b7783abe35dea8a` — finding + corrective plan;
+- `eaf1ac9af2318a176d70430953c53638eeb2ccb1` — truth/status/playbook realignment.
 
-1. built a real Windows application through the real WBAB build runner;
-2. packaged the resulting binaries through real NSIS packaging;
-3. signed the exact installer through the real signer and verified that signature;
-4. installed that exact installer in real WineBot;
-5. launched the installed application;
-6. produced an independently verified deterministic postcondition.
+## P1 — first-party product qualification
 
-The existing opt-in `e2e-real` path is currently best classified as `INFRASTRUCTURE_SMOKE` by default because it uses fixture product artifacts and can skip installation.
+Status: **candidate implementation complete; execution evidence pending**.
 
-## Current semantic defect
+Candidate commit:
 
-The host wrappers for `wbab build`, `wbab package`, and `wbab sign` still default to fixture/scaffold behavior, even though the tool images contain real runners. Until #58 P2 changes this, success from those default wrappers must not be presented as real product build/package/sign evidence.
+- `99dd3d7d8c98cd7d28d2715fedbe64eae056bb82`
 
-## Evidence classes
+New durable machinery:
 
-- `STATIC_CONTRACT`
-- `MOCKED_BEHAVIOR`
-- `INFRASTRUCTURE_SMOKE`
-- `PRODUCT_QUALIFICATION`
-- `RELEASE_QUALIFICATION`
+- `tests/e2e/product-qualification.sh`;
+- `.github/workflows/product-qualification.yml` (opt-in/non-required while stabilizing).
 
-Never silently promote a weaker class into a stronger PASS.
-
-## Current critical path
-
-### P0 — truth/evidence alignment
-
-Status: **in progress on corrective branch**.
-
-Required:
-
-- durable findings/program record;
-- accurate README/AGENTS/STATE descriptions;
-- remove stale `workspace/`/nonexistent `init` quick-start claims;
-- make current fixture defaults explicit.
-
-### P1 — real first-party product qualification
-
-Next bounded implementation action.
-
-Use `samples/validation-app` as the real product workload:
+The candidate script is designed to execute:
 
 ```text
-exact candidate source
-  -> candidate-source winbuild image
-  -> real CMake/MinGW build
-  -> verify Validation binaries
-  -> candidate-source packager image
-  -> real NSIS installer
-  -> candidate-source signer image
-  -> dev-sign exact installer + verify signature
-  -> real WineBot
+SOURCE_IDENTIFIED
+  -> candidate-source winbuild image build
+  -> real wbab-build-real on isolated samples/validation-app
+  -> verify ValidationCore.dll / CLI / GUI / Tests outputs
+  -> run ValidationTests.exe under Wine
+  -> candidate-source packager image build
+  -> real wbab-package-real installer.nsi
+  -> verify real ValidationSetup.exe
+  -> candidate-source signer image build
+  -> ephemeral one-day dev signing certificate
+  -> real wbab-sign-real
+  -> osslsigncode signature verification against the ephemeral CA cert
+  -> isolated WineBot workset
   -> install exact signed installer
-  -> run installed ValidationCLI.exe
-  -> extract deterministic output
-  -> exact content assertion
-  -> structured qualification receipt
+  -> execute installed ValidationCLI.exe
+  -> write unique value to C:\wbab-product-qualification.txt
+  -> extract output from WineBot
+  -> exact expected-content assertion
+  -> events.jsonl + receipt.json + phase logs/artifacts
 ```
 
-Initial P1 should be opt-in/non-required until repeated execution demonstrates acceptable reliability and resource cost. Existing gates remain during stabilization.
+Candidate behavior is designed to fail closed: the final receipt uses `PRODUCT_QUALIFICATION` only when the script reaches the terminal success state after the deterministic postcondition. A failed/interrupted attempt is recorded as `UNQUALIFIED_ATTEMPT` with its current/failed phase.
 
-### P2 — truthful ordinary command defaults
+### What has **not** yet been proven
 
-Blocked on P1 being usable enough to expose failures clearly.
+No exact-head product-qualification run has yet been observed for `99dd3d7d8c98cd7d28d2715fedbe64eae056bb82`.
 
-- real build/package by default;
-- fixture mode explicit/test-scoped;
+Therefore the following remain unknown/unexecuted for this candidate until actual run evidence exists:
+
+- candidate Docker image build success;
+- real validation-app MinGW/CMake compile success in the candidate image;
+- Wine unit-test success;
+- real NSIS packaging success;
+- real dev-sign/signature-verification success;
+- current WineBot `stable` pull/boot compatibility;
+- silent installer behavior;
+- installed CLI path correctness under current Wine;
+- exact postcondition extraction/content match;
+- end-to-end runtime/resource cost.
+
+Do not infer any of those from older/mock/static green checks.
+
+## P2 — truthful ordinary command defaults
+
+Status: **not started; intentionally blocked on P1 evidence**.
+
+Once the real vertical is usable enough to diagnose failures:
+
+- real build/package becomes the normal semantic default;
+- fixture mode becomes explicit/test-scoped;
 - `sign` cannot silently copy bytes and call that signing;
-- plan output matches actual execution semantics.
+- `wbab plan` must match actual execution semantics.
 
-### P3 — prune/collapse ceremony
+## P3 — value-audit/prune ceremony
 
-Blocked on replacement evidence from P1/P2.
+Status: **not started; intentionally blocked on replacement evidence**.
 
-Do not delete legacy checks before their unique decision value has been evaluated and replacement evidence exists.
+Do not delete legacy tests merely because they are mocked. Evaluate unique decision value and prune/collapse only after stronger or cheaper evidence supersedes them.
 
-### P4 — release/external qualification
+## P4 — release/external qualification
+
+Status: not started.
 
 Later:
 
 - exact published image digests;
 - exact artifact hashes;
-- first-party vertical;
-- selected real external target (candidate: WinInspect).
+- first-party product vertical;
+- selected external target (candidate: WinInspect).
 
-## Stop / resume checkpoint
+## Resume checkpoint
 
-Current authoritative program: issue #58.  
-Current intended branch: `corrective/testing-capability-qualification`.  
-Current next safe action: implement P1 as a bounded candidate product-qualification script/workflow, then execute it against the exact branch head and retain actual phase evidence.  
+Authoritative program: issue #58.  
+Current branch/head: `corrective/testing-capability-qualification` @ `99dd3d7d8c98cd7d28d2715fedbe64eae056bb82` (before this state-checkpoint commit).  
+Last completed engineering action: candidate product-qualification script/workflow implemented.  
+Validation state: **NOT YET EXECUTED against the candidate; no product PASS**.  
+Next safe bounded action: open/update the corrective PR, execute repository-native CI and the opt-in product-qualification workflow against its exact head, inspect the first real failure/success evidence, and use that result to choose the next implementation change.  
 Human authority required now: **no** for reversible repository implementation and public deterministic CI.  
 Stop before release publication, production signing credentials, destructive history changes, or other undeclared authority escalation.
