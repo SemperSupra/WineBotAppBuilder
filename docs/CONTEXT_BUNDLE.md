@@ -2,125 +2,67 @@
 
 ## Current milestone
 
-**Testing corrective program #58 — P0 through P3 complete on the corrective stack.**
+**WBAB retirement — issue #61.**
 
-Current durable workset:
+WBAB is feature-frozen and is being retired as a standalone build/orchestration platform. Do not resume historical feature-roadmap work.
 
-- parent PR #59: `corrective/testing-capability-qualification`;
-- stacked P3 PR #60: `corrective/testing-ceremony-prune`;
-- last validated P3 documentation checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`;
-- exact ordinary CI at that checkpoint: run `33637937692`, five jobs passed.
+## Current durable workset
 
-Implemented capability state:
+- authoritative retirement tracker: #61;
+- retirement plan: `RETIREMENT.md`;
+- dependency inventory: `docs/RETIREMENT-INVENTORY.md`;
+- current state/resume point: `docs/STATE.md`;
+- final corrective integration candidate: PR #63;
+- prepared retirement branch: `retirement/wbab-retirement-final`.
 
-- real candidate-source winbuild/product qualification vertical;
-- real candidate-source NSIS packaging;
-- real development signing with independent signature verification;
-- WineBot install + installed CLI execution + deterministic externalized postcondition;
-- ordinary `build`, `package`, and `sign` verbs use truthful real defaults;
-- explicit fixture/custom modes and fail-closed contradictory-mode handling;
-- structured `wbab plan` aligned with runtime execution mode;
-- idempotent daemon state, retry/resume, audit, AuthN/AuthZ/TLS surfaces;
-- live HTTP bearer-auth behavioral coverage;
-- structured release authority-order policy checks;
-- compact five-job ordinary CI with mocked integration retained inside the bounded shell suite;
-- candidate Product Qualification path-scoped to product-path changes and manually dispatchable;
-- completed P3 recurring-gate inventory and ceremony-pruning stop decision.
+## Current exact integration state
 
-Release qualification is **not** complete. The release workflow publishes real artifacts/images, but exact published identities have not yet been qualified as a release set.
+The completed #58 P0-P3 corrective stack is represented by exact head:
 
-## Directory map
+`461c2704586a8bcb5d876be30322cb19bff52a60`
 
-- `tools/` — user/automation-facing commands and runtime adapters
-- `core/` — shared business logic
-- `scripts/` — repository maintenance/security/publish helpers
-- `tests/shell/` — bounded shell behavior, targeted mocks, selected live-local behavior
-- `tests/contract/` — structured CLI/interface contracts
-- `tests/policy/` — authority/config/provenance/formal-model policy checks
-- `tests/unit/` — Python/core unit/property tests
-- `tests/e2e/product-qualification.sh` — real first-party candidate product vertical
-- `tests/e2e/run-real.sh` — opt-in real Docker/WineBot infrastructure smoke
-- `.github/workflows/` — CI, qualification, manual diagnostic/formal/release workflows
-- `docs/` — durable contracts, current state, corrective plan, security/formal guidance
+Replacement non-draft PR #63 targets `main` because the connected ready-for-review mutation for original draft PR #60 is broken by a connector GraphQL schema defect.
 
-## Canonical contracts
+Fresh exact-head validation opened for #63:
 
-- Current state/resume point: `docs/STATE.md`
-- Testing corrective plan and gate inventory: `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`
-- CLI/environment contracts: `docs/CONTRACTS.md`
-- Daemon security architecture: `docs/DAEMON_API_SECURITY_PLAN.md`
-- Formal model interpretation: `docs/FORMAL_MODEL_HOWTO.md`
-- Agent working rules: `AGENTS.md`
+- CI run `33643641548`;
+- Product Qualification run `33643641313`.
 
-## Commands to run locally
+Both must reach terminal PASS before #63 is merged. No P4/release-qualification program is authorized.
 
-Ordinary validators:
+## Retirement work already completed
 
-```bash
-./scripts/bootstrap-submodule.sh
-./scripts/lint.sh
-./tests/shell/run.sh
-./tests/contract/run.sh
-./tests/policy/run.sh
-```
+- WinInspect detached from WBAB through PR #366 after installer-lifecycle run `33641873371` passed; merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
+- WineBot architecture corrected through PR #122; merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
+- Portfolio lessons harvested to engineering-governance-private ADR 0002 through PR #136; merged as `00363c37d5503d49c7435d66128c3af758f0d0a4`.
+- First-pass indexed search found no other executable downstream WBAB consumer.
+- Major expansion/backlog issues were closed as not planned.
 
-The mocked build→package→sign→smoke integration test is invoked by `tests/shell/run.sh`; there is no separate ordinary `tests/e2e/run.sh` gate.
+## Preferred successor architecture
 
-Higher-fidelity paths:
+- native product build/test/package -> product-local GitHub Actions on Windows;
+- reusable Windows release/trust/distribution -> Windows Package Foundry;
+- native Windows GUI/interactive automation -> WinBot;
+- licensed/legacy persistent Windows toolchain -> controlled Windows runner/VM;
+- Wine compatibility/runtime qualification -> WineBot;
+- shared runtime/API conformance -> winebot-contracts.
 
-```bash
-# Candidate-source first-party product qualification
-./tests/e2e/product-qualification.sh
+## Preserved final WBAB capability truth
 
-# Opt-in real Docker/WineBot infrastructure smoke
-./tests/e2e/run-real.sh
-```
+Before retirement, #58 established:
 
-## Current command semantics
+- real candidate-source build/package/sign behavior;
+- real first-party validation app build and tests;
+- real NSIS installer;
+- real development signing plus independent verification;
+- WineBot install and execution of the installed CLI;
+- deterministic external postcondition;
+- structured execution planning;
+- reduced five-job ordinary CI.
 
-- `./tools/wbab build <project>` — real image-native build by default.
-- `./tools/wbab package <project>` — real image-native package by default.
-- `./tools/wbab sign <project>` — real development-certificate signing by default.
-- fixture mode — explicit test selection only.
-- custom command mode — explicit override only.
-- contradictory mode settings — fail closed.
-- `./tools/wbab plan ...` — reports the same resolved execution mode/command used by runtime execution.
+This is `PRODUCT_QUALIFICATION` evidence, not `RELEASE_QUALIFICATION`.
 
-Ordinary consumption remains pull-first from approved GHCR images. Candidate-source/local image construction is permitted when qualification/development requires it; do not treat that as the ordinary distribution default.
-
-## CI / workflow map
-
-### Ordinary PR CI — five recurring jobs
-
-1. `lint`
-2. `shell-unit` — bounded shell + retained mocked integration
-3. `contract`
-4. `policy`
-5. `python-unit`
-
-### Product qualification
-
-`Product Qualification (Candidate)`:
-
-- triggers on relevant `core/**`, `tools/**`, validation-app, qualification-script, or qualification-workflow PR changes;
-- can also be manually dispatched;
-- checks out the exact candidate head;
-- runs the full candidate-source first-party product vertical;
-- uploads retained qualification evidence;
-- evidence class: `PRODUCT_QUALIFICATION` only on terminal success.
-
-### Opt-in/manual workflows
-
-- `E2E Real (Opt-In)` — real Docker/WineBot infrastructure path; normally `INFRASTRUCTURE_SMOKE`.
-- `Policy Preflight Trend Gate (Opt-in)` — daemon trend-policy/diagnostic workflow.
-- `TLA Skeleton Contract (Opt-in)` — TLA skeleton contract + formal-model snapshot; not full TLC state-space proof.
-- `Release Automation` — real publication path with credential/authority boundaries; publication success is not by itself `RELEASE_QUALIFICATION`.
-
-`Approved Issues Only` and `Approved PRs Only` are participation/governance controls, not testing gates.
-
-## Evidence rules
-
-Use:
+## Evidence classes
 
 - `STATIC_CONTRACT`
 - `MOCKED_BEHAVIOR`
@@ -128,25 +70,40 @@ Use:
 - `PRODUCT_QUALIFICATION`
 - `RELEASE_QUALIFICATION`
 
-Do not silently promote a weaker class. Bind stronger claims to exact source/artifact identities. A P3 documentation/test-policy-only change does not inherit a new product PASS, but it also should not trigger Product Qualification when no product surface changed.
+Never upgrade a weaker class into a stronger claim. Strong evidence belongs to the exact candidate/artifact that executed.
 
-## Proven corrective checkpoints
+## Retirement branch contents
 
-- P1 first-party product qualification: `04eb9e85805f629fcc2f36ab5f3428920d07be6b`; CI `33620383914`; Product Qualification `33620384011`.
-- P2 build/package truthful defaults: `f0ff0f6ef2ea43cf704733fa6c28a5e7d6e33564`; CI `33628042826`; Product Qualification `33628042831`.
-- P2 signing truthful default: `1c986051a078f870ee70c37d5088006b34239534`; CI `33629015926`; Product Qualification `33629015830`.
-- P3.1 structured plan-contract collapse: `7a075f729257601d15f527b3686bab736cf68095`; CI `33631623609`; Product Qualification `33631623580`.
-- P3.2 engineering consolidation: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`, five jobs passed.
-- P3.2 documentation/inventory checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`, five jobs passed.
+`retirement/wbab-retirement-final` is based on the exact #63 candidate, not the old `main`, so after #63 lands it should become a small retirement-only diff.
 
-## P3 stop decision
+It contains or will contain:
 
-P3 is complete. The as-built inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md` shows that each remaining ordinary gate has a distinct protected risk and an actionable failure decision. Further deletion is not earned merely to reduce gate count. Reassess only when a cheaper/more faithful replacement exists or a remaining signal demonstrably becomes redundant.
+- `RETIREMENT.md`;
+- retirement-first `README.md`;
+- `docs/RETIREMENT-INVENTORY.md`;
+- retirement-focused `docs/STATE.md`;
+- retirement-focused `AGENTS.md`;
+- this context bundle;
+- final backlog/workflow/publication cleanup only where evidence shows it is safe.
 
-## Next bounded work
+## Next bounded sequence
 
-1. Refresh mutable PR heads/status from GitHub and make PR #60 review-ready if it remains mergeable and exact-head checks are green.
-2. Reconcile the stacked integration path with parent PR #59 without transferring validation claims across changed heads.
-3. Scope P4 separately: exact published image digests, exact release artifact hashes, release-qualified first-party vertical, and selected external target(s).
+1. Observe #63 CI and Product Qualification.
+2. If both PASS and #63 remains clean, exact-head merge #63.
+3. Close #59/#60 as superseded and close/complete #58 with exact final evidence.
+4. Open `retirement/wbab-retirement-final` against the resulting `main`; close old retirement PR #62 as superseded.
+5. Validate and merge the retirement-only delta.
+6. Check whether any external consumer still uses WBAB releases/GHCR images.
+7. Disable release/image publication and optional/scheduled workflows that no longer protect a retirement invariant.
+8. Confirm final docs/backlog/state and enter cooling-off.
+9. Archive only when #61 completion criteria are satisfied.
 
-Stop before release publication, production signing credentials, destructive history changes, or undeclared authority escalation.
+## Stop conditions
+
+Stop before:
+
+- new WBAB feature/platform development;
+- release publication or production signing;
+- destructive history rewrites or deletion of historical evidence;
+- removing a newly discovered live dependency without replacement evidence;
+- credential/licensing/security boundary changes not already authorized by retirement work.
