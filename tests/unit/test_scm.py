@@ -200,8 +200,6 @@ class TestSanitizeGitUrlHypothesis(unittest.TestCase):
 
     def test_urls_with_credentials_redacted(self):
         """URLs with credentials always have them redacted."""
-        from hypothesis import given, strategies as st
-
         # Test common URL schemes with credentials
         urls_with_auth = [
             "https://user:pass@host/repo",
