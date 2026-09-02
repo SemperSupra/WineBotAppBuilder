@@ -25,12 +25,15 @@ export PATH="${TMP}/mockbin:${PATH}"
 export MOCK_LOG="${TMP}/mock.log"
 export WBAB_ALLOW_LOCAL_BUILD="1"
 export WBAB_PACKAGER_DOCKERFILE="${TMP}/tools/packaging/Dockerfile"
+export WBAB_PACKAGE_MODE="fixture"
+unset WBAB_PACKAGE_CMD
 
-bash "${TMP}/tools/package-nsis.sh" "${TMP}/project"
+output="$(bash "${TMP}/tools/package-nsis.sh" "${TMP}/project")"
 
 log="$(cat "${MOCK_LOG}")"
-
 echo "${log}" | grep -q "DOCKER build " || { echo "Expected docker build when opt-in enabled" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER run " || { echo "Expected docker run" >&2; exit 1; }
+echo "${log}" | grep -q "bash -lc wbab-package-fixture" || { echo "Expected explicit fixture package command" >&2; exit 1; }
+echo "${output}" | grep -q "mode=fixture" || { echo "Expected explicit fixture-mode status" >&2; exit 1; }
 
-echo "OK: package local-build opt-in policy satisfied"
+echo "OK: package local-build opt-in and explicit fixture mode satisfied"
