@@ -2,68 +2,79 @@
 
 ## Current milestone
 
-**WBAB retirement — issue #61.**
+**WBAB archival preparation — issue #61.**
 
-WBAB is feature-frozen and is being retired as a standalone build/orchestration platform. Do not resume historical feature-roadmap work.
+WBAB is feature-frozen and retiring. Do not resume historical feature-roadmap work.
 
-## Current durable workset
+## Durable authority
 
-- authoritative retirement tracker: #61;
-- retirement plan: `RETIREMENT.md`;
-- dependency inventory: `docs/RETIREMENT-INVENTORY.md`;
-- current state/resume point: `docs/STATE.md`;
-- final corrective baseline on `main`: `5ef09847de2770c2619592453d372f42dcf97eed`;
-- current retirement branch: `retirement/wbab-retirement-main`.
+Read in this order:
 
-## Final corrective baseline
+1. `RETIREMENT.md`
+2. issue #61
+3. `docs/STATE.md`
+4. `docs/RETIREMENT-INVENTORY.md`
+5. the bounded retirement PR being executed
 
-The completed #58 P0-P3 corrective stack was validated on exact head:
+## Landed baselines
+
+Final truthful product candidate before retirement:
 
 `461c2704586a8bcb5d876be30322cb19bff52a60`
 
-Fresh exact-head validation:
+Exact evidence:
 
-- CI run `33643641548` — PASS;
-- Product Qualification run `33643641313` — PASS.
+- CI `33643641548` — PASS;
+- Product Qualification `33643641313` — PASS.
 
-Replacement PR #63 squash-merged to `main` as `5ef09847de2770c2619592453d372f42dcf97eed`.
+PR #63 squash-merged the corrective work as `5ef09847de2770c2619592453d372f42dcf97eed`.
 
-Original PRs #59/#60 are superseded historical integration scaffolding. P4/release qualification is not authorized as WBAB product work.
+PR #64 then landed the retirement plan/state/documentation as `d2de132e05bb0f86b01d87a1cdbb70d0c1333bb7`.
 
-## Retirement work completed
+Issue #58 is complete. P4/release qualification is not WBAB retirement work.
 
-- WinInspect detached from WBAB through PR #366 after installer-lifecycle run `33641873371` passed; merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
-- WineBot architecture corrected through PR #122; merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
-- Portfolio lessons harvested to engineering-governance-private ADR 0002 through PR #136; merged as `00363c37d5503d49c7435d66128c3af758f0d0a4`.
-- First-pass indexed search found no other executable downstream WBAB consumer.
-- Major expansion/backlog issues were closed as not planned.
-- Old retirement PR #62 was closed as superseded by a fresh branch based on corrected `main`.
+## Completed migrations / harvested value
 
-## Preferred successor architecture
+- WinInspect detached through PR #366 after installer-lifecycle run `33641873371` passed; merge `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
+- WineBot architecture corrected through PR #122; merge `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
+- Portfolio lesson harvested to engineering-governance-private ADR 0002 through PR #136; merge `00363c37d5503d49c7435d66128c3af758f0d0a4`.
+- `samples/validation-app` disposition: archive in place unless a future named consumer proves a real need.
 
-- native product build/test/package -> product-local GitHub Actions on Windows;
-- reusable Windows release/trust/distribution -> Windows Package Foundry;
-- native Windows GUI/interactive automation -> WinBot;
-- licensed/legacy persistent Windows toolchain -> controlled Windows runner/VM;
-- Wine compatibility/runtime qualification -> WineBot;
-- shared runtime/API conformance -> winebot-contracts.
+## Publication consumer result
 
-## Preserved final WBAB capability truth
+The historical release workflow published:
 
-Before retirement, #58 established:
+- `winebotappbuilder-winbuild`
+- `winebotappbuilder-packager`
+- `winebotappbuilder-signer`
+- `winebotappbuilder-linter`
 
-- real candidate-source build/package/sign behavior;
-- real first-party validation app build and tests;
-- real NSIS installer;
-- real development signing plus independent verification;
-- WineBot install and execution of the installed CLI;
-- deterministic external postcondition;
-- structured execution planning;
-- reduced five-job ordinary CI.
+Exact-name searches across accessible SemperSupra and `mark-e-deyoung` repositories found no consumers. Searches for WBAB release URLs found none.
 
-This is `PRODUCT_QUALIFICATION` evidence, not `RELEASE_QUALIFICATION`.
+The final public release observed during retirement is `v0.3.7` (2026-02-18), with one `ValidationSetup.exe` asset, SHA-256 `087fd9892ecf83806c365be8cd5965cca995f94b4bb588972411a80f94f69492`, recorded download count 1.
 
-## Evidence classes
+No active portfolio dependency on the release asset or GHCR images was found.
+
+## Current bounded work
+
+Branch: `retirement/disable-publication`.
+
+Remove obsolete operational workflows:
+
+- release publication;
+- opt-in real-E2E infrastructure smoke;
+- opt-in policy-trend diagnostics;
+- opt-in TLA/formal contract workflow.
+
+Retain through cooling-off:
+
+- ordinary CI;
+- candidate Product Qualification for any consequential product-path fix;
+- approved-issue / approved-PR participation controls.
+
+Existing GitHub releases/packages are preserved; the change stops future publication rather than deleting history.
+
+## Evidence classes retained
 
 - `STATIC_CONTRACT`
 - `MOCKED_BEHAVIOR`
@@ -71,41 +82,24 @@ This is `PRODUCT_QUALIFICATION` evidence, not `RELEASE_QUALIFICATION`.
 - `PRODUCT_QUALIFICATION`
 - `RELEASE_QUALIFICATION`
 
-Never upgrade a weaker class into a stronger claim. Strong evidence belongs to the exact candidate/artifact that executed.
-
-## Current retirement branch contents
-
-`retirement/wbab-retirement-main` is based directly on corrected `main`, so its intended PR is a retirement-only delta.
-
-It contains:
-
-- `RETIREMENT.md`;
-- retirement-first `README.md`;
-- `docs/RETIREMENT-INVENTORY.md`;
-- retirement-focused `docs/STATE.md`;
-- retirement-focused `AGENTS.md`;
-- this context bundle;
-- retired `BACKLOG.md`.
-
-Further workflow/publication changes should be added only after checking that no external consumer still needs WBAB release/GHCR outputs.
+Never promote a weaker class into a stronger claim.
 
 ## Next bounded sequence
 
-1. Open `retirement/wbab-retirement-main` against `main`.
-2. Confirm the diff is retirement-only and run ordinary validation appropriate to docs/governance changes.
-3. Merge the retirement state when clean.
-4. Close/complete #58 with exact final evidence.
-5. Check whether any external consumer still uses WBAB releases/GHCR images.
-6. Disable release/image publication and optional/scheduled workflows that no longer protect a retirement invariant.
-7. Update #61 completion checklist and enter cooling-off.
-8. Archive only when #61 completion criteria are satisfied.
+1. Open and inspect the operational-shutdown PR.
+2. Validate workflow removal and retained safety surfaces.
+3. Merge when clean.
+4. Update #61 with publication shutdown and final identities.
+5. Check remaining repository-visible deploy/config references for active operational dependency.
+6. Enter cooling-off.
+7. Archive only after the agreed observation period and #61 completion criteria remain satisfied.
 
 ## Stop conditions
 
 Stop before:
 
-- new WBAB feature/platform development;
-- release publication or production signing;
+- new WBAB product/platform development;
+- new release publication or production signing;
 - destructive history rewrites or deletion of historical evidence;
-- removing a newly discovered live dependency without replacement evidence;
-- credential/licensing/security boundary changes not already authorized by retirement work.
+- removing a newly surfaced live dependency without replacement evidence;
+- credential/licensing/security changes beyond retirement authority.
