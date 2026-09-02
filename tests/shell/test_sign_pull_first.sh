@@ -20,13 +20,16 @@ chmod +x "${TMP}/mockbin/docker"
 export PATH="${TMP}/mockbin:${PATH}"
 export MOCK_LOG="${TMP}/mock.log"
 export WBAB_ALLOW_LOCAL_BUILD="0"
+export WBAB_SIGN_MODE="fixture"
+unset WBAB_SIGN_CMD WBAB_SIGN_USE_DEV_CERT
 
-bash "${TMP}/tools/sign-dev.sh" "${TMP}/project"
-
+output="$(bash "${TMP}/tools/sign-dev.sh" "${TMP}/project")"
 log="$(cat "${MOCK_LOG}")"
 
 echo "${log}" | grep -q "DOCKER pull " || { echo "Expected docker pull" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER run " || { echo "Expected docker run" >&2; exit 1; }
 echo "${log}" | grep -q "DOCKER build " && { echo "Did not expect docker build" >&2; exit 1; }
+echo "${log}" | grep -q "wbab-sign-fixture" || { echo "Expected explicit fixture signing command" >&2; exit 1; }
+echo "${output}" | grep -q "mode=fixture" || { echo "Expected explicit fixture-mode status" >&2; exit 1; }
 
-echo "OK: sign pull-first/no-build policy satisfied"
+echo "OK: sign pull-first/no-build policy with explicit fixture mode satisfied"

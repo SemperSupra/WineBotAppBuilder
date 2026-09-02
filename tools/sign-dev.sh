@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Containerized signing runner (dev/test path).
-# Default policy is pull-first and no local image builds unless explicitly enabled.
+# Default policy is pull-first, no local image builds unless explicitly enabled,
+# and actual dev-certificate signing unless fixture/custom mode is explicit.
 #
 # Usage:
 #   ./tools/sign-dev.sh [project-dir]
@@ -12,12 +13,14 @@ set -euo pipefail
 #   WBAB_TAG (default v0.3.7)
 #   WBAB_ALLOW_LOCAL_BUILD (default 0)
 #   WBAB_SIGNER_DOCKERFILE (default tools/signing/Dockerfile)
-#   WBAB_SIGN_CMD (default creates a fixture output in dist/)
-#   WBAB_SIGN_USE_DEV_CERT (default 0): use dev cert + osslsigncode path
-#   WBAB_SIGN_AUTOGEN_DEV_CERT (default 1 when WBAB_SIGN_USE_DEV_CERT=1): auto-init dev cert
-#   WBAB_DEV_CERT_DIR (default agent-privileged/signing/dev): cert material dir
-#   WBAB_SIGN_INPUT (default dist/FakeSetup.exe): sign input for dev-cert mode
-#   WBAB_SIGN_OUTPUT (default dist/FakeSetup-signed.exe): sign output for dev-cert mode
+#   WBAB_SIGN_MODE (dev-cert|fixture|custom; default dev-cert)
+#   WBAB_SIGN_CMD (required for custom mode; legacy override implies custom when mode is unset)
+#   WBAB_SIGN_USE_DEV_CERT (legacy 0|1 mode selector; conflicts fail closed)
+#   WBAB_SIGN_AUTOGEN_DEV_CERT (default 1 in dev-cert mode)
+#   WBAB_DEV_CERT_DIR (default ../agent-privileged/signing/dev, outside this repo)
+#   WBAB_DOCKER_USER (default invoking uid:gid for dev-cert mode)
+#   WBAB_SIGN_INPUT (default dist/FakeSetup.exe)
+#   WBAB_SIGN_OUTPUT (default dist/FakeSetup-signed.exe)
 
 PROJECT_DIR="${1:-.}"
 if [[ ! -d "${PROJECT_DIR}" ]]; then
@@ -36,26 +39,61 @@ SIGNER_DOCKERFILE="${WBAB_SIGNER_DOCKERFILE:-${ROOT_DIR}/tools/signing/Dockerfil
 LOCAL_IMAGE="${SIGNER_IMAGE}:local"
 REMOTE_IMAGE="${SIGNER_IMAGE}:${SIGNER_TAG}"
 
-SIGN_CMD="${WBAB_SIGN_CMD:-if [[ ! -f dist/FakeSetup.exe ]]; then echo 'missing dist/FakeSetup.exe' >&2; exit 2; fi; mkdir -p dist && cp -f dist/FakeSetup.exe dist/FakeSetup-signed.exe && echo 'fixture sign completed' > dist/sign-fixture.txt}"
-SIGN_USE_DEV_CERT="${WBAB_SIGN_USE_DEV_CERT:-0}"
+SIGN_MODE="${WBAB_SIGN_MODE:-}"
+SIGN_CMD="${WBAB_SIGN_CMD:-}"
 SIGN_AUTOGEN_DEV_CERT="${WBAB_SIGN_AUTOGEN_DEV_CERT:-1}"
-DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/agent-privileged/signing/dev}"
+DEV_CERT_DIR="${WBAB_DEV_CERT_DIR:-${ROOT_DIR}/../agent-privileged/signing/dev}"
 SIGN_INPUT="${WBAB_SIGN_INPUT:-dist/FakeSetup.exe}"
 SIGN_OUTPUT="${WBAB_SIGN_OUTPUT:-dist/FakeSetup-signed.exe}"
 
-if [[ "${SIGN_USE_DEV_CERT}" == "1" && -z "${WBAB_SIGN_CMD:-}" ]]; then
-  if [[ "${SIGN_AUTOGEN_DEV_CERT}" == "1" ]]; then
-    if [[ ! -x "${DEV_CERT_SCRIPT}" ]]; then
-      echo "ERROR: dev cert script not found/executable: ${DEV_CERT_SCRIPT}" >&2
+if [[ -z "${SIGN_MODE}" ]]; then
+  if [[ -n "${SIGN_CMD}" ]]; then
+    SIGN_MODE="custom"
+  elif [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+    case "${WBAB_SIGN_USE_DEV_CERT}" in
+      1) SIGN_MODE="dev-cert" ;;
+      0) SIGN_MODE="fixture" ;;
+      *) echo "ERROR: WBAB_SIGN_USE_DEV_CERT must be 0 or 1" >&2; exit 2 ;;
+    esac
+  else
+    SIGN_MODE="dev-cert"
+  fi
+fi
+
+if [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+  case "${WBAB_SIGN_USE_DEV_CERT}" in
+    1) LEGACY_SIGN_MODE="dev-cert" ;;
+    0) LEGACY_SIGN_MODE="fixture" ;;
+    *) echo "ERROR: WBAB_SIGN_USE_DEV_CERT must be 0 or 1" >&2; exit 2 ;;
+  esac
+  if [[ "${SIGN_MODE}" != "${LEGACY_SIGN_MODE}" ]]; then
+    echo "ERROR: WBAB_SIGN_USE_DEV_CERT conflicts with WBAB_SIGN_MODE=${SIGN_MODE}" >&2
+    exit 2
+  fi
+fi
+
+case "${SIGN_MODE}" in
+  dev-cert|fixture)
+    if [[ -n "${SIGN_CMD}" ]]; then
+      echo "ERROR: WBAB_SIGN_CMD requires WBAB_SIGN_MODE=custom" >&2
       exit 2
     fi
-    if [[ ! -f "${DEV_CERT_DIR}/dev.pfx" || ! -f "${DEV_CERT_DIR}/dev.pfx.pass" ]]; then
-      WBAB_DEV_CERT_DIR="${DEV_CERT_DIR}" "${DEV_CERT_SCRIPT}" init
+    ;;
+  custom)
+    if [[ -z "${SIGN_CMD}" ]]; then
+      echo "ERROR: WBAB_SIGN_MODE=custom requires WBAB_SIGN_CMD" >&2
+      exit 2
     fi
-  fi
-
-  SIGN_CMD="if [[ ! -f ${SIGN_INPUT} ]]; then echo 'missing ${SIGN_INPUT}' >&2; exit 2; fi; if [[ ! -f ${DEV_CERT_DIR}/dev.pfx || ! -f ${DEV_CERT_DIR}/dev.pfx.pass ]]; then echo 'missing dev cert material in ${DEV_CERT_DIR}' >&2; exit 2; fi; if ! command -v osslsigncode >/dev/null 2>&1; then echo 'osslsigncode not found in signer image' >&2; exit 3; fi; mkdir -p \"\$(dirname ${SIGN_OUTPUT})\"; osslsigncode sign -pkcs12 ${DEV_CERT_DIR}/dev.pfx -readpass ${DEV_CERT_DIR}/dev.pfx.pass -h sha256 -in ${SIGN_INPUT} -out ${SIGN_OUTPUT}; echo 'dev cert sign completed' > dist/sign-fixture.txt"
-fi
+    if [[ -n "${WBAB_SIGN_USE_DEV_CERT+x}" ]]; then
+      echo "ERROR: legacy WBAB_SIGN_USE_DEV_CERT cannot be combined with custom signing" >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "ERROR: invalid WBAB_SIGN_MODE '${SIGN_MODE}' (expected dev-cert|fixture|custom)" >&2
+    exit 2
+    ;;
+esac
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "ERROR: docker not found" >&2
@@ -78,8 +116,56 @@ fi
 
 mkdir -p "${PROJECT_DIR_ABS}/dist"
 
-docker run --rm \
-  -v "${PROJECT_DIR_ABS}:/workspace" \
-  -w /workspace \
-  "${IMAGE_TO_RUN}" \
-  bash -lc "${SIGN_CMD}"
+echo "wbab-sign: mode=${SIGN_MODE} image=${IMAGE_TO_RUN}"
+case "${SIGN_MODE}" in
+  dev-cert)
+    if [[ "${SIGN_AUTOGEN_DEV_CERT}" == "1" ]]; then
+      if [[ ! -x "${DEV_CERT_SCRIPT}" ]]; then
+        echo "ERROR: dev cert script not found/executable: ${DEV_CERT_SCRIPT}" >&2
+        exit 2
+      fi
+      if [[ ! -f "${DEV_CERT_DIR}/dev.pfx" || ! -f "${DEV_CERT_DIR}/dev.pfx.pass" ]]; then
+        WBAB_DEV_CERT_DIR="${DEV_CERT_DIR}" "${DEV_CERT_SCRIPT}" init
+      fi
+    fi
+
+    if [[ ! -f "${DEV_CERT_DIR}/dev.pfx" || ! -f "${DEV_CERT_DIR}/dev.pfx.pass" ]]; then
+      echo "ERROR: dev cert material missing in ${DEV_CERT_DIR}" >&2
+      exit 2
+    fi
+
+    if [[ -z "${WBAB_DOCKER_USER:-}" ]]; then
+      command -v id >/dev/null 2>&1 || { echo "ERROR: id command required to map host signing permissions" >&2; exit 2; }
+      DOCKER_USER="$(id -u):$(id -g)"
+    else
+      DOCKER_USER="${WBAB_DOCKER_USER}"
+    fi
+
+    docker run --rm \
+      --user "${DOCKER_USER}" \
+      -v "${PROJECT_DIR_ABS}:/workspace" \
+      -v "${DEV_CERT_DIR}:/run/wbab-signing:ro" \
+      -w /workspace \
+      -e WBAB_DEV_CERT_DIR=/run/wbab-signing \
+      -e "WBAB_SIGN_INPUT=${SIGN_INPUT}" \
+      -e "WBAB_SIGN_OUTPUT=${SIGN_OUTPUT}" \
+      "${IMAGE_TO_RUN}" \
+      wbab-sign
+    ;;
+  fixture)
+    docker run --rm \
+      -v "${PROJECT_DIR_ABS}:/workspace" \
+      -w /workspace \
+      -e "WBAB_SIGN_INPUT=${SIGN_INPUT}" \
+      -e "WBAB_SIGN_OUTPUT=${SIGN_OUTPUT}" \
+      "${IMAGE_TO_RUN}" \
+      wbab-sign-fixture
+    ;;
+  custom)
+    docker run --rm \
+      -v "${PROJECT_DIR_ABS}:/workspace" \
+      -w /workspace \
+      "${IMAGE_TO_RUN}" \
+      bash -lc "${SIGN_CMD}"
+    ;;
+esac
