@@ -98,10 +98,14 @@ write_receipt() {
   local signed="${PROJECT_DIR}/dist/ValidationSetup-signed.exe"
   local cli="${PROJECT_DIR}/out/ValidationCLI.exe"
   local extracted="${ARTIFACT_ROOT}/winebot/extracted_output.txt"
-  local unsigned_sha="$(sha_if_file "${unsigned}")"
-  local signed_sha="$(sha_if_file "${signed}")"
-  local cli_sha="$(sha_if_file "${cli}")"
-  local extracted_sha="$(sha_if_file "${extracted}")"
+  local unsigned_sha
+  local signed_sha
+  local cli_sha
+  local extracted_sha
+  unsigned_sha="$(sha_if_file "${unsigned}")"
+  signed_sha="$(sha_if_file "${signed}")"
+  cli_sha="$(sha_if_file "${cli}")"
+  extracted_sha="$(sha_if_file "${extracted}")"
 
   python3 - "${RECEIPT_FILE}" <<PY
 import datetime, json
