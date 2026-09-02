@@ -144,7 +144,9 @@ def require_pr(
         raise WorksetError(f"PR #{pr.number} has CHANGES_REQUESTED")
     unresolved = unresolved_review_threads(pr.number)
     if unresolved:
-        raise WorksetError(f"PR #{pr.number} has {unresolved} unresolved review thread(s)")
+        raise WorksetError(
+            f"PR #{pr.number} has {unresolved} unresolved review thread(s)"
+        )
 
 
 def mark_ready(pr: PullRequestState, *, execute: bool) -> None:
@@ -158,7 +160,9 @@ def mark_ready(pr: PullRequestState, *, execute: bool) -> None:
 
 def wait_for_checks(number: int, *, execute: bool) -> None:
     if not execute:
-        print(f"DRY-RUN: wait for PR #{number} checks (timeout={CHECK_TIMEOUT_SECONDS}s)")
+        print(
+            f"DRY-RUN: wait for PR #{number} checks (timeout={CHECK_TIMEOUT_SECONDS}s)"
+        )
         return
     run(
         [
@@ -410,7 +414,9 @@ def execute_workset(*, execute: bool, expected_child_head: str) -> None:
     if main_after == main_after_parent:
         raise WorksetError("main did not advance after merging PR #60")
 
-    tracker_comment(success_comment(main_before, main_after, expected_child_head), execute=True)
+    tracker_comment(
+        success_comment(main_before, main_after, expected_child_head), execute=True
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -432,7 +438,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if args.execute and not args.expected_child_head:
-        print("ERROR: --expected-child-head is required with --execute", file=sys.stderr)
+        print(
+            "ERROR: --expected-child-head is required with --execute", file=sys.stderr
+        )
         return 2
 
     try:
