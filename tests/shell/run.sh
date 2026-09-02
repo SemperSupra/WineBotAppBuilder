@@ -51,6 +51,7 @@ run_test tests/shell/test_wbabd_concurrency.sh
 run_test tests/shell/test_wbabd_audit_log.sh
 run_test tests/shell/test_wbabd_store_migration.sh
 run_test tests/shell/test_wbabd_serve_auth_config.sh
+run_test tests/shell/test_wbabd_http_bearer_auth.sh
 run_test tests/shell/test_wbabd_authz_policy.sh
 run_test tests/shell/test_wbabd_serve_tls_limits_config.sh
 run_test tests/shell/test_wbabd_serve_preflight_flag.sh
