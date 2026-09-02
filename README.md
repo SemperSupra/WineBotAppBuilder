@@ -1,65 +1,50 @@
 # WineBotAppBuilder (WBAB)
 
-A production-ready, containerized toolchain for building, packaging, signing, and testing Windows applications on Linux.
+> **Retirement notice — 2026-09-02:** WBAB is feature-frozen and being retired as a standalone build/orchestration platform. Do not adopt it for new work. See [`RETIREMENT.md`](RETIREMENT.md) and issue #61 for the migration plan, successor systems, completion criteria, and resurrection rule.
 
-WBAB is designed for **deterministic automation**, providing a unified CLI that ensures the same environment is used across developer machines, CI/CD pipelines, and AI agents.
+WBAB is a containerized toolchain for Windows development on Linux. It provides build, package, signing, and validation operations integrated with WineBot-style execution environments.
 
-## Core Features
-- **Containerized Build:** Cross-compile Win32/Win64 apps using a stable toolchain (`wbab build`).
-- **Integrated Linting:** Run project-specific static analysis within the toolchain (`wbab lint`).
-- **Unit Testing:** Execute unit tests (including Windows binaries via Wine) (`wbab test`).
-- **Standardized Packaging:** Create NSIS installers in a controlled environment (`wbab package`).
-- **Secure Signing:** Integrated support for self-signed dev certs and production PKI (`wbab sign`).
-- **Headless Smoke Testing:** Run installers in WineBot (Docker-based Wine) and verify contents automatically (`wbab smoke`).
-- **Idempotent Daemon:** A core engine that handles retries and prevents redundant operations (`wbabd`).
-- **Network Discovery:** Zero-configuration local network discovery using mDNS (`wbab discover`).
-- **Agent-Ready:** Structured JSON planning (`wbab plan`) and audit logs for AI-driven development.
-- **Dev Container:** Full-featured VS Code development environment with all tools pre-installed.
+## Retirement status
 
-## Quick Start
+New product/platform development has stopped. Changes are limited to bounded retirement/migration work, security-critical fixes, truthful final-state documentation, and extraction of uniquely useful capability required by a named real consumer.
 
-### 1. Prerequisites
-Ensure you have Docker and the GitHub CLI installed.
+Preferred successor paths are:
 
-### 2. Installation
-```bash
-git clone https://github.com/SemperSupra/WineBotAppBuilder.git
-cd WineBotAppBuilder/workspace
-./scripts/bootstrap-submodule.sh
-```
+- **native Windows build/test:** product-local GitHub Actions on a native Windows runner;
+- **reusable Windows release/trust/distribution:** `SemperSupra/windows-package-foundry`;
+- **native Windows interactive/GUI automation or controlled legacy Windows environments:** `mark-e-deyoung/WinBot` plus an appropriate Windows runner/VM;
+- **Wine runtime/compatibility validation:** `SemperSupra/WineBot`;
+- **shared runtime/conformance contracts:** `mark-e-deyoung/winebot-contracts`.
 
-### 3. Initialize a New Project
-```bash
-# Initialize a new policy-compliant project
-./tools/wbab init "My Awesome App" /path/to/my-project
-```
+Existing WBAB behavior remains useful as historical/reference material while consumers are detached. Retirement is not complete until no live consumer depends on WBAB and replacement paths have been proven on real targets.
 
-### 4. Usage (The WBAB Pipeline)
-```bash
-# Run operations through the daemon (with auto-discovery)
-./tools/wbab build samples/validation-app
-./tools/wbab package samples/validation-app
-```
+## Evidence vocabulary
 
-## Core philosophy & Reliability
-- **Non-Root Runtime**: All toolchain containers run as restricted user `wbab` (UID 1000).
-- **SQLite Storage**: All operation state and audit logs use SQLite for persistence and atomicity.
-- **Remote RCE Guard**: The core engine directly constructs `docker run` commands; host-side scripts are not used for execution in production.
-- **Workspace Isolation**: Built-in cleanup of `out/` and `dist/` directories ensures no stale artifacts pollute new builds.
+WBAB's retirement preserves an important lesson from its testing red-team: evidence must be named according to what actually executed.
 
-## Documentation for Humans
-- **[User Guide](docs/USER_GUIDE.md):** Comprehensive guide on creating and testing your own apps.
-- **[Contracts](docs/CONTRACTS.md):** Definition of stable CLI verbs and environment variables.
-- **[Daemon Security](docs/DAEMON_API_SECURITY_PLAN.md):** Security architecture and deployment profiles.
+- `STATIC_CONTRACT` — source/configuration/schema inspection only.
+- `MOCKED_BEHAVIOR` — behavior checked with an intentional mock/fixture standing in for another component.
+- `INFRASTRUCTURE_SMOKE` — infrastructure started or transported data but did not prove the full product claim.
+- `PRODUCT_QUALIFICATION` — a real product capability chain executed against an exact source/artifact identity and checked an independent postcondition.
+- `RELEASE_QUALIFICATION` — qualification of exact published release artifacts/identities.
 
-## Documentation for Agents
-- **[AGENTS.md](AGENTS.md):** The primary playbook for AI agents (context windows, commit policies).
-- **[CONTEXT_BUNDLE.md](docs/CONTEXT_BUNDLE.md):** Technical deep-dive for establishing agent context.
-- **[Formal Model](docs/FORMAL_MODEL_HOWTO.md):** Guidance on the TLA+ idempotency specifications.
+A green static or mocked check must never be presented as product qualification.
 
-## Project Policy
-- **Pull-First:** By default, WBAB pulls official images from `ghcr.io/sempersupra`. Local builds of the toolchain are disabled unless `WBAB_ALLOW_LOCAL_BUILD=1` is set.
-- **Atomic Commits:** One commit per implementation change is strictly enforced for traceability.
+## Historical qualification fixture
 
----
-*For historical bring-up notes, see [docs/BRINGUP.md](docs/BRINGUP.md).*
+`samples/validation-app` is the first-party qualification workload used to exercise the real WBAB/WineBot vertical. During retirement its final disposition will be decided explicitly: migrate it only if another owner has a real need for the fixture; otherwise preserve it here as part of the archived engineering record.
+
+## Project history and current authority
+
+Durable repository state is authoritative. For current retirement work, read in this order:
+
+1. `RETIREMENT.md`
+2. issue #61 — authoritative retirement tracker
+3. `STATE.md`
+4. bounded migration/retirement issues or pull requests
+
+Historical documentation and code may describe capabilities or expansion plans that are no longer active. The retirement plan supersedes feature-roadmap intent.
+
+## License
+
+MIT. See `LICENSE`.
