@@ -42,12 +42,17 @@ RUN set -eux; \
     dpkg -i /tmp/trivy.deb; \
     rm /tmp/trivy.deb
 
-# Install CycloneDX CLI for SBOM validation
-RUN curl -sSL -o /tmp/cyclonedx-cli.tar.gz https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.1/cyclonedx-linux-amd64.tar.gz \
-    && tar -xzf /tmp/cyclonedx-cli.tar.gz -C /tmp \
-    && mv /tmp/cyclonedx-linux-amd64/cyclonedx /usr/local/bin/cyclonedx \
-    && chmod +x /usr/local/bin/cyclonedx \
-    && rm -rf /tmp/cyclonedx*
+# CycloneDX CLI releases publish the Linux x64 CLI as a raw executable, not a
+# tar archive. Pin the exact release and GitHub-published digest so bootstrap
+# fails closed if upstream content does not match the expected asset.
+ARG CYCLONEDX_CLI_VERSION=0.33.1
+ARG CYCLONEDX_LINUX_X64_SHA256=bfc8b2538da86fe239bc53658bbb63c1c8c510a293c1e6891aa5bea5d3c58746
+RUN set -eux; \
+    curl --fail --location --retry 3 --retry-all-errors \
+      -o /usr/local/bin/cyclonedx \
+      "https://github.com/CycloneDX/cyclonedx-cli/releases/download/v${CYCLONEDX_CLI_VERSION}/cyclonedx-linux-x64"; \
+    echo "${CYCLONEDX_LINUX_X64_SHA256}  /usr/local/bin/cyclonedx" | sha256sum -c -; \
+    chmod +x /usr/local/bin/cyclonedx
 
 # Create non-root user
 RUN groupadd -g 1000 wbab && useradd -u 1000 -g wbab -m -s /bin/bash wbab
