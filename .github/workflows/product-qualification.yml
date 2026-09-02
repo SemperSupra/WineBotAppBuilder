@@ -1,0 +1,49 @@
+name: Product Qualification (Candidate, Opt-In)
+
+on:
+  workflow_dispatch:
+    inputs:
+      winebot_tag:
+        description: "WineBot image tag to qualify against"
+        required: false
+        default: "stable"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-qualification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show exact candidate and runtime
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          docker --version
+          docker compose version
+
+      - name: Run candidate-source product qualification
+        env:
+          WBAB_WINEBOT_TAG: ${{ inputs.winebot_tag }}
+          WBAB_PQ_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          chmod +x tests/e2e/product-qualification.sh
+          ./tests/e2e/product-qualification.sh
+
+      - name: Upload product qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/product-qualification/**
+          if-no-files-found: warn
