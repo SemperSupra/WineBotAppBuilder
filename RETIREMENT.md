@@ -1,7 +1,8 @@
 # WBAB Retirement Plan
 
-Status: **Retiring / feature-frozen**
-
+Status: **Cooling off / feature-frozen**  
+Cooling-off start: **2026-09-02**  
+Earliest archive review: **2026-09-16**  
 Authoritative tracker: #61
 
 ## Decision
@@ -39,54 +40,69 @@ A proposed exception must identify the real consumer, the capability it requires
 
 ## Retirement phases
 
-### Phase 1 — freeze and make intent durable
+### Phase 1 — freeze and make intent durable — COMPLETE
 
-1. Publish this plan and issue #61.
-2. Put the retirement notice at the top of the README.
-3. Stop feature-roadmap work and close superseded expansion issues as not planned.
-4. Finish only the already-earned #58 corrective work needed to leave WBAB truthful.
+The retirement plan, README notice, retired backlog, and #58 disposition are on `main`.
 
-### Phase 2 — inventory and harvest
+### Phase 2 — inventory and harvest — COMPLETE
 
-1. Search accessible organization/personal repositories for imports, submodules, workflow calls, scripts, documentation, and stale references.
-2. Classify each reference as runtime, build, test/qualification, documentation, or stale.
-3. Harvest demonstrated-useful lessons/capabilities into named successor owners.
-4. Do not copy code merely because it exists; require a consumer or durable lesson.
+- Accessible organization/personal repositories were searched for executable and documentation dependencies.
+- The evidence taxonomy and infrastructure-retirement lesson were harvested to `SemperSupra/engineering-governance-private` ADR 0002.
+- `samples/validation-app` is intentionally archived in place unless a future named consumer proves a real need.
+- No speculative code migration was performed merely to keep WBAB components active.
 
-### Phase 3 — detach consumers
+### Phase 3 — detach consumers — COMPLETE
 
-The strongest known consumer, `SemperSupra/WinInspect-private`, has been detached. PR #366 removed the WBAB submodule after exact-head installer-lifecycle validation run `33641873371` passed; the change merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
+The strongest known consumer, `SemperSupra/WinInspect-private`, was detached through PR #366 after exact-head installer-lifecycle validation run `33641873371` passed; the change merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
 
-WineBot's architecture documentation was then corrected in `SemperSupra/WineBot#122`, merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
+WineBot architecture documentation was corrected through `SemperSupra/WineBot#122`, merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
 
-No other executable WBAB consumer was found in the first-pass indexed repository search.
+No other executable WBAB consumer was found in the accessible portfolio inventory.
 
-### Phase 4 — archival preparation
+### Phase 4 — archival preparation — COMPLETE
 
-1. Land the completed #58 truthfulness stack through the replacement integration PR #63.
-2. Reconcile retirement state against that truthful `main`.
-3. Disable optional/scheduled/expensive WBAB workflows that no longer protect a migration or archival invariant.
-4. Stop publication of WBAB images/releases after confirming no consumer requires them.
-5. Remove/revoke operational configuration or credentials no longer required, without destroying historical evidence.
-6. Record last-known-good source/release identities and successor paths.
-7. Make README, STATE, AGENTS, and backlog/status material accurately describe retirement.
+- #58 P0-P3 truthful corrective baseline landed through PR #63 after exact-head CI and Product Qualification passed.
+- Retirement documentation/state landed through PR #64.
+- Exact GHCR image-name and release-URL searches found no accessible portfolio consumers.
+- Release publication and obsolete manual E2E/policy-trend/TLA workflows were removed through PR #65 after CI passed.
+- The retirement policy now fails closed if publication authority reappears.
+- Existing historical releases/packages are preserved; no new publication path remains.
+- Repository-visible daemon configuration is example-only and contains no committed credentials.
 
-### Phase 5 — cooling-off and archive
+### Phase 5 — cooling-off and archive — ACTIVE
 
-After the last consumer is detached and archival preparation is complete, leave the repository unarchived but feature-frozen for one or two normal development cycles. Treat any attempted return to WBAB during this period as evidence: either the replacement architecture is missing a real capability or the caller should use the established successor path.
+Cooling-off begins **2026-09-02**. The earliest archive review is **2026-09-16**, providing a two-week observation window rather than immediately archiving after dependency removal.
 
-Archive the GitHub repository when the completion criteria below are met.
+During cooling-off:
+
+- do not develop new features;
+- do not publish new releases/images;
+- retain ordinary CI and Product Qualification as safety nets for a consequential retirement/security fix;
+- retain issue/PR participation controls;
+- treat any legitimate attempt to depend on WBAB as new evidence that must be evaluated against the resurrection criterion;
+- otherwise make no changes merely to keep the project active.
+
+At or after 2026-09-16, archive the repository if all of the following remain true:
+
+1. no new live consumer or dependency has surfaced;
+2. no retirement/security fix demonstrates a unique WBAB capability that lacks a successor;
+3. publication remains disabled;
+4. issue #61 is the only remaining active retirement tracker or is ready to close;
+5. the completion criteria below remain satisfied.
+
+If a real dependency appears, do not broadly revive WBAB. Open a bounded exception under #61 and test the narrow capability against the preferred successor architecture.
 
 ## Completion criteria
 
-Retirement is complete when:
+Retirement is ready for archive when:
 
-- no live development, CI, release, or runtime workflow requires WBAB;
+- no live external development, CI, release, or runtime workflow depends on WBAB;
 - no repository imports WBAB as a required submodule, Action, or tool;
 - useful code/concepts have an identified successor owner or an explicit archive-in-place decision;
 - replacement workflows have run successfully against real targets;
 - no documentation recommends WBAB for new adoption;
 - no WBAB-published image/release is required by another project;
+- new WBAB publication is disabled;
 - final project documentation explains why WBAB existed, what was learned, what replaced it, and how narrowly scoped resurrection would be justified.
 
 ## Resurrection criterion
@@ -122,5 +138,6 @@ The broader portfolio lesson is recorded in `SemperSupra/engineering-governance-
 - Preserve Git history.
 - Preserve the rationale and red-team findings.
 - Preserve exact evidence needed to understand the final working state.
+- Preserve historical releases/packages unless there is a separate reason to remove them.
 - Prefer links to successor repositories over duplicated documentation.
 - Do not spend retirement effort improving abstractions that have no remaining consumer.
