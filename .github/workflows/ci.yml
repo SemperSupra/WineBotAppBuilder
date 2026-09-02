@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: false
-      - name: Run shell unit tests (mocked)
+      - name: Run bounded shell and mocked integration tests
         run: |
           chmod +x tests/shell/run.sh
           ./tests/shell/run.sh
@@ -105,14 +105,3 @@ jobs:
           name: coverage-report
           path: coverage_html/
           if-no-files-found: warn
-
-  e2e-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: false
-      - name: Run mocked e2e smoke pipeline
-        run: |
-          chmod +x tests/e2e/run.sh
-          ./tests/e2e/run.sh
