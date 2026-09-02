@@ -29,10 +29,18 @@ RUN curl -sSL -o /tmp/ruff.tar.gz https://github.com/astral-sh/ruff/releases/dow
 # Install Mypy
 RUN pip3 install --no-cache-dir --break-system-packages mypy==1.15.0
 
-# Install Trivy
-RUN curl -sSL -o /tmp/trivy.deb https://github.com/aquasecurity/trivy/releases/download/v0.59.1/trivy_0.59.1_Linux-64bit.deb \
-    && dpkg -i /tmp/trivy.deb \
-    && rm /tmp/trivy.deb
+# Install Trivy from an immutable upstream release and verify the exact asset
+# digest before installation. The prior v0.59.1 pin did not exist and caused
+# lint to fail during validator bootstrap rather than execute against the code.
+ARG TRIVY_VERSION=0.74.0
+ARG TRIVY_LINUX64_DEB_SHA256=cf1e32ec8d4d8823e023096a28cadb14f5b5123ce03f201fb633c5b76aa712dd
+RUN set -eux; \
+    curl --fail --location --retry 3 --retry-all-errors \
+      -o /tmp/trivy.deb \
+      "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.deb"; \
+    echo "${TRIVY_LINUX64_DEB_SHA256}  /tmp/trivy.deb" | sha256sum -c -; \
+    dpkg -i /tmp/trivy.deb; \
+    rm /tmp/trivy.deb
 
 # Install CycloneDX CLI for SBOM validation
 RUN curl -sSL -o /tmp/cyclonedx-cli.tar.gz https://github.com/CycloneDX/cyclonedx-cli/releases/download/v0.25.1/cyclonedx-linux-amd64.tar.gz \
