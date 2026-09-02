@@ -1,44 +1,63 @@
 # WBAB Project Organization Policy
 
-This document defines the organizational structure of the WineBotAppBuilder (WBAB) project folder to ensure a clear separation of concerns between human-managed and agent-managed files.
+This policy describes the current repository layout and authority boundaries. It supersedes the earlier assumption that source code lives under a required `workspace/` directory; the current repository develops directly from its root-level source directories.
 
-## Directory Structure
+## Authoritative source/workset
 
-The project root is organized into the following top-level directories:
+The Git repository is the durable engineering authority. Primary source and validation areas are:
 
-### 1. `workspace/` (Shared/Human & Agent)
-- **Purpose:** Contains the project source code, scripts, tools, and documentation.
-- **Management:** Shared responsibility. Both humans and agents can modify files here according to project needs.
-- **Status:** Primary development area.
+- `core/` — reusable core/daemon business logic;
+- `tools/` — CLI/daemon entry points and container/tool runners;
+- `scripts/` — deterministic repository/operator helpers;
+- `samples/` — first-party validation/example projects;
+- `tests/` — validation code, classified by the evidence it actually produces;
+- `formal/` — formal-model artifacts;
+- `deploy/` — deployment examples/templates;
+- `docs/` — current durable project state, decisions, findings and runbooks;
+- `.github/` — repository-native CI/release/governance automation.
 
-### 2. `agent-sandbox/` (Agent Managed - Sandbox)
-- **Purpose:** Persistent and transient state used by AI agents and the WBAB toolchain that does NOT require elevated privileges.
-- **Contents:**
-  - `state/`: Idempotent operation store (`core-store.sqlite`), audit logs (`audit-log.sqlite`), and preflight diagnostics.
-  - `artifacts/`: Build artifacts produced by the toolchain.
-  - `out/`: Compilation outputs.
-  - `dist/`: Packaging and signing outputs.
-- **Management:** Managed exclusively by agents and automation tools. Humans should generally not modify files here.
-- **Privilege Level:** Standard user (No elevation).
+There is no required repository-root `workspace/` directory. An external project passed to WBAB may of course be mounted as `/workspace` inside a container; that runtime mount name is not the repository source layout.
 
-### 3. `agent-privileged/` (Agent Managed - Privileged)
-- **Purpose:** Sensitive or system-level configuration managed by agents that may require elevation or careful handling.
-- **Contents:**
-  - `signing/`: PKI material for code signing (dev certificates, CA material).
-  - `daemon-pki/`: Internal PKI for `wbabd` daemon communication.
-- **Management:** Managed by agents. Access should be restricted.
-- **Privilege Level:** Elevated/Privileged.
+## Agent/runtime state
 
-### 4. `manual/` (Human Managed)
-- **Purpose:** Miscellaneous files, documentation, or archives that are managed exclusively by humans and are not part of the core workspace.
-- **Contents:** Bring-up notes, specific development guides, zip archives.
-- **Management:** Exclusively human-managed. Agents should NOT modify files in this directory unless explicitly directed.
+### `agent-sandbox/`
 
-## Enforcement
+Purpose: non-secret durable or transient automation/agent state when repository-local state is justified.
 
-- **Tools:** The WBAB toolchain (`wbab`, `wbabd`) and core logic (`wbab_core.py`) are configured to use these directories by default.
-- **Hidden Files:** No hidden files or directories (starting with `.`) should be used for agent-managed state in the project root.
-- **Invariants:**
-  - Agents must respect the boundaries of the `manual/` directory.
-  - Source code must remain in `workspace/`.
-  - All non-code state must be stored in `agent-sandbox/` or `agent-privileged/`.
+Rules:
+
+- do not treat it as the canonical project-plan database when an issue/PR/artifact is sufficient;
+- transient build outputs belong in ignored `out/`, `dist/`, or `artifacts/` locations rather than being committed;
+- committed entries must be intentionally durable and non-sensitive.
+
+### `agent-privileged/`
+
+Purpose: local privileged/sensitive runtime material such as development/production signing or daemon PKI when generated for an execution environment.
+
+Rules:
+
+- secrets/private keys must not be committed;
+- privileged material is local/runtime authority, not ordinary source;
+- production credential use requires explicit authority beyond routine repository implementation.
+
+### `manual/`
+
+If present, `manual/` is human-managed material. Agents must not modify it unless explicitly directed.
+
+## Separation-of-concerns invariants
+
+- Core business logic belongs in `core/`, not duplicated across CLI/API/GUI adapters.
+- Product/tool runners belong in `tools/`; reusable operational helpers belong in `scripts/`.
+- Tests should validate observable behavior at the cheapest faithful boundary and must not mislabel mock/static evidence as product qualification.
+- Durable working state should prefer GitHub issues/PRs/refs/artifacts and compact `docs/STATE.md` pointers over growing parallel task databases.
+- Generated build/package/smoke artifacts are not source and should remain outside committed source paths unless intentionally captured as a small non-sensitive evidence fixture.
+- No hidden directory may be used to bypass these authority/secrecy boundaries.
+
+## Testing corrective program
+
+Issue #58 is the current authority for the testing-value correction. The accepted finding and plan are:
+
+- `docs/findings/testing-value-red-team-2026-09-02.md`
+- `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`
+
+The organization policy does not require a separate testing platform; the preferred architecture remains repository-native deterministic scripts/workflows plus exact durable evidence.
