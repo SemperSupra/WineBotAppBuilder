@@ -36,7 +36,7 @@ P4 / `RELEASE_QUALIFICATION` is deliberately separate and has **not** started. N
 4. `policy`
 5. `python-unit`
 
-Product Qualification is path-scoped/manual and is required only when the changed claim crosses the real build/package/sign/install/runtime product boundary.
+Product Qualification is path-scoped/manual and is required when the changed claim crosses the real build/package/sign/install/runtime product boundary.
 
 ## Execution / delegation correction
 
@@ -53,7 +53,28 @@ durable GitHub baton
 
 The current fallback is `scripts/ops/complete-issue-58-stack.py`.
 
-It is intentionally fail-closed and idempotent where practical. It verifies exact PR heads/base state, checks review-thread/change-request state, requires passing CI, uses exact-head guarded squash merges, retargets #60 only after #59 merges, waits for a **new** CI run after retargeting, and writes success/failure evidence back to #58.
+It is intentionally fail-closed and idempotent where practical. It verifies exact PR heads/base state, review/change-request state, checks, and mergeability before mutation.
+
+### Stack-safe integration order
+
+Do **not** squash #59 to `main` first and then retarget #60. #60 is stacked on #59's commit ancestry; squashing the parent first can destroy the shared ancestry and make the child appear to reintroduce parent changes.
+
+The deterministic executor therefore performs:
+
+```text
+validated PR #60 exact head
+    -> mark #60 ready
+    -> squash #60 into its existing parent branch (#59 head branch)
+    -> observe the new combined #59 head
+    -> require a NEW ordinary CI run on that combined head
+    -> require a NEW Product Qualification run on that combined head
+    -> mark #59 ready
+    -> squash the fully revalidated #59 once into main
+    -> verify main advanced
+    -> write exact evidence back to #58
+```
+
+This keeps the stack ancestry intact until the combined candidate has been independently validated and preserves the repository's normal squash-style final integration into `main`.
 
 The script requires `--execute` plus the exact #60 head supplied by the durable #58 baton. That guard prevents a stale local session from silently integrating a changed candidate.
 
@@ -61,12 +82,12 @@ The script requires `--execute` plus the exact #60 head supplied by the durable 
 
 The maintainer has delegated the routine #58 stack-integration mechanics to automation/local-agent execution. Human manual clicking is **not required** for:
 
-- marking #59/#60 ready for review;
-- merging #59 after its exact checks remain green and its exact head/base remain unchanged;
-- retargeting #60 to the resulting `main`;
-- waiting for and evaluating the new exact integration CI;
-- merging #60 if that integration evidence passes;
-- writing the resulting evidence back to #58.
+- marking #60 ready for review;
+- merging #60 into the existing #59 parent branch after its exact checks remain green;
+- waiting for and evaluating the new combined-head CI and Product Qualification on #59;
+- marking #59 ready for review;
+- merging the revalidated combined #59 to `main`;
+- writing the resulting exact evidence back to #58.
 
 The executor MUST stop for:
 
