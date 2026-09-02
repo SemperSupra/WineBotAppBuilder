@@ -4,11 +4,11 @@
 **Current corrective program:** issue #58 — capability-driven product qualification and test-value correction  
 **Parent implementation PR:** #59 (`corrective/testing-capability-qualification`)  
 **Stacked P3 PR:** #60 (`corrective/testing-ceremony-prune`)  
-**Last proven engineering head:** `4077fbd2d85a1fdd460921e4e589d3f708804961`
+**Last validated P3 documentation checkpoint:** `46db696704bf5f51ae15dcacf2d19aa0128e0200`
 
 ## Current status
 
-P0 through P3 have reached implemented, independently reviewable checkpoints on the corrective stack. WBAB now has a proven first-party product-qualification vertical, truthful ordinary build/package/sign semantics, and a reduced ordinary CI topology whose remaining gates have explicit decision value.
+P0 through P3 are **complete on the corrective stack**. WBAB now has a proven first-party product-qualification vertical, truthful ordinary build/package/sign semantics, an as-built recurring-gate inventory, and a reduced ordinary CI topology whose remaining gates each have explicit decision value.
 
 This does **not** mean release qualification is complete. No current claim is made that exact published release images/artifacts have been qualified end-to-end or that WBAB should be labeled generally `Production Stable`.
 
@@ -73,7 +73,7 @@ Current semantics:
 
 ## P3 — value audit and ceremony pruning
 
-Status: **implementation complete; durable documentation reconciliation is the final checkpoint**.
+Status: **complete**.
 
 P3.1 plan-contract collapse:
 
@@ -89,7 +89,8 @@ P3.2 stacked pruning in PR #60:
 - live HTTP bearer authentication semantics added before auth/TLS source greps were removed;
 - release workflow line/step-name ceremony replaced by structured authority-order validation before the old order test was deleted;
 - mocked build→package→sign→smoke integration signal moved into the bounded shell suite before the standalone `e2e-smoke` job/wrapper was removed;
-- exact engineering head `4077fbd2d85a1fdd460921e4e589d3f708804961` passed CI run `33633402860` with the final five ordinary jobs.
+- engineering head `4077fbd2d85a1fdd460921e4e589d3f708804961` passed five-job CI run `33633402860`;
+- documentation/inventory checkpoint `46db696704bf5f51ae15dcacf2d19aa0128e0200` passed five-job CI run `33637937692`.
 
 Current ordinary CI jobs:
 
@@ -99,7 +100,15 @@ Current ordinary CI jobs:
 4. `policy`
 5. `python-unit`
 
-Product Qualification is path-scoped/opt-in and intentionally did not run for P3.2 test/policy-only changes. That does not transfer an older product PASS to the P3.2 head; it means P3.2 makes no changed-product claim requiring product qualification.
+Product Qualification is path-scoped/opt-in and intentionally did not run for P3.2 test/policy/documentation-only changes. That does not transfer an older product PASS to those heads; it means P3.2 makes no changed-product claim requiring product qualification.
+
+P3 stop decision:
+
+- the as-built inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md` accounts for every recurring validation/qualification workflow;
+- the five remaining ordinary gates each protect a distinct material risk and have an actionable failure consequence;
+- opt-in diagnostic/formal/infrastructure workflows retain distinct purposes without adding ordinary PR tax;
+- repository participation controls are explicitly outside the testing inventory;
+- further deletion is not earned merely to reduce the gate count.
 
 ## P4 — release and external qualification
 
@@ -120,9 +129,10 @@ The existing release workflow is a real publication mechanism, not by itself pro
 Authoritative tracker: issue #58.  
 Parent implementation PR: #59.  
 Current P3 PR: #60.  
-Last proven engineering head: `4077fbd2d85a1fdd460921e4e589d3f708804961`.  
-Last exact validation: CI run `33633402860`, five ordinary jobs passed.  
-Product-code state changed by the current documentation checkpoint: **no**.  
-Current bounded action: reconcile durable docs and the P3 as-built gate inventory, inspect the exact documentation commit, then decide whether P3 is complete and PR #60 is ready for review.  
-Human authority required now: **no** for reversible repository documentation/checkpoint work.  
-Stop before release publication, production signing credentials, destructive history changes, or other undeclared authority escalation.
+Last validated P3 documentation checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`, five jobs passed.  
+Mutable branch/PR heads must still be refreshed from GitHub before mutation; do not infer them from this snapshot.  
+P3 disposition: **complete; no additional ceremony pruning currently earned**.  
+Next safe bounded action: make PR #60 review-ready, then reconcile the stacked PR integration path without transferring validation claims across changed heads.  
+P4 is a separate future phase and begins only when exact published release identities are deliberately in scope.  
+Human authority required now: **no** for review-readiness/checkpoint metadata; reassess before merge/release publication or other authority-sensitive transitions.  
+Stop before release publication, production signing credentials, destructive history changes, or undeclared authority escalation.

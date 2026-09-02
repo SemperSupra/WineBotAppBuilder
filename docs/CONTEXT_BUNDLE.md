@@ -2,14 +2,14 @@
 
 ## Current milestone
 
-**Testing corrective program #58 — P0 through P3 implemented on the corrective stack.**
+**Testing corrective program #58 — P0 through P3 complete on the corrective stack.**
 
 Current durable workset:
 
 - parent PR #59: `corrective/testing-capability-qualification`;
 - stacked P3 PR #60: `corrective/testing-ceremony-prune`;
-- last proven engineering head: `4077fbd2d85a1fdd460921e4e589d3f708804961`;
-- exact ordinary CI run at that head: `33633402860`, five jobs passed.
+- last validated P3 documentation checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`;
+- exact ordinary CI at that checkpoint: run `33637937692`, five jobs passed.
 
 Implemented capability state:
 
@@ -24,7 +24,8 @@ Implemented capability state:
 - live HTTP bearer-auth behavioral coverage;
 - structured release authority-order policy checks;
 - compact five-job ordinary CI with mocked integration retained inside the bounded shell suite;
-- candidate Product Qualification path-scoped to product-path changes and manually dispatchable.
+- candidate Product Qualification path-scoped to product-path changes and manually dispatchable;
+- completed P3 recurring-gate inventory and ceremony-pruning stop decision.
 
 Release qualification is **not** complete. The release workflow publishes real artifacts/images, but exact published identities have not yet been qualified as a release set.
 
@@ -63,7 +64,7 @@ Ordinary validators:
 ./tests/policy/run.sh
 ```
 
-The mocked build→package→sign→smoke integration test is now invoked by `tests/shell/run.sh`; there is no separate ordinary `tests/e2e/run.sh` gate.
+The mocked build→package→sign→smoke integration test is invoked by `tests/shell/run.sh`; there is no separate ordinary `tests/e2e/run.sh` gate.
 
 Higher-fidelity paths:
 
@@ -135,13 +136,17 @@ Do not silently promote a weaker class. Bind stronger claims to exact source/art
 - P2 build/package truthful defaults: `f0ff0f6ef2ea43cf704733fa6c28a5e7d6e33564`; CI `33628042826`; Product Qualification `33628042831`.
 - P2 signing truthful default: `1c986051a078f870ee70c37d5088006b34239534`; CI `33629015926`; Product Qualification `33629015830`.
 - P3.1 structured plan-contract collapse: `7a075f729257601d15f527b3686bab736cf68095`; CI `33631623609`; Product Qualification `33631623580`.
-- P3.2 five-job consolidated CI: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`.
+- P3.2 engineering consolidation: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`, five jobs passed.
+- P3.2 documentation/inventory checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`, five jobs passed.
+
+## P3 stop decision
+
+P3 is complete. The as-built inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md` shows that each remaining ordinary gate has a distinct protected risk and an actionable failure decision. Further deletion is not earned merely to reduce gate count. Reassess only when a cheaper/more faithful replacement exists or a remaining signal demonstrably becomes redundant.
 
 ## Next bounded work
 
-1. Finish durable P3 gate inventory/document reconciliation and validate the exact documentation checkpoint.
-2. If no remaining recurring gate lacks decision value, mark P3 complete and make PR #60 review-ready.
-3. Reconcile/merge the stacked PRs according to repository policy without transferring validation claims across changed heads.
-4. Scope P4 separately: exact published image digests, exact release artifact hashes, release-qualified first-party vertical, and selected external target(s).
+1. Refresh mutable PR heads/status from GitHub and make PR #60 review-ready if it remains mergeable and exact-head checks are green.
+2. Reconcile the stacked integration path with parent PR #59 without transferring validation claims across changed heads.
+3. Scope P4 separately: exact published image digests, exact release artifact hashes, release-qualified first-party vertical, and selected external target(s).
 
 Stop before release publication, production signing credentials, destructive history changes, or undeclared authority escalation.
