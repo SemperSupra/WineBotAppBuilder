@@ -68,6 +68,7 @@ def require_common(plan: dict[str, Any], command: str) -> None:
     require(plan.get("command") == command, f"{command}: wrong command field")
     source = plan.get("source")
     require(isinstance(source, dict), f"{command}: missing source object")
+    assert isinstance(source, dict)
     require(source.get("type") == "local", f"{command}: expected local source")
     steps = plan.get("steps")
     require(
@@ -82,9 +83,11 @@ def require_project_plan(
     require_common(plan, command)
     inputs = plan.get("inputs")
     require(isinstance(inputs, dict), f"{command}: missing inputs")
+    assert isinstance(inputs, dict)
     require(inputs.get("project_dir") == ".", f"{command}: wrong project_dir")
     policy = plan.get("policy")
     require(isinstance(policy, dict), f"{command}: missing policy")
+    assert isinstance(policy, dict)
     missing = expected_policy_keys - set(policy)
     require(not missing, f"{command}: missing policy keys {sorted(missing)}")
     return plan
@@ -102,12 +105,14 @@ def test_simple_plans() -> None:
     require_common(smoke, "smoke")
     inputs = smoke.get("inputs")
     require(isinstance(inputs, dict), "smoke: missing inputs")
+    assert isinstance(inputs, dict)
     require(
         inputs.get("installer") == "dist/FakeSetup.exe",
         "smoke: wrong installer input",
     )
     policy = smoke.get("policy")
     require(isinstance(policy, dict), "smoke: missing policy")
+    assert isinstance(policy, dict)
     for key in ("winebot_image", "winebot_tag", "winebot_profile", "winebot_service"):
         require(key in policy, f"smoke: missing policy key {key}")
 
@@ -128,6 +133,7 @@ def require_mode(
     require_common(plan, verb)
     policy = plan.get("policy")
     require(isinstance(policy, dict), f"{verb}: missing policy")
+    assert isinstance(policy, dict)
     require(
         policy.get("execution_mode") == expected_mode,
         f"{verb}: expected mode={expected_mode}, got {policy.get('execution_mode')}",
