@@ -1,113 +1,81 @@
 # Project State
 
 **Current date:** 2026-09-02  
-**Current corrective program:** issue #58 — capability-driven product qualification and test-value correction  
-**Parent implementation PR:** #59 (`corrective/testing-capability-qualification`)  
-**Stacked P3 PR:** #60 (`corrective/testing-ceremony-prune`)
+**Current program:** issue #61 — retire WBAB and migrate remaining capabilities  
+**Status:** feature-frozen / retiring  
+**Final corrective baseline on main:** `5ef09847de2770c2619592453d372f42dcf97eed`
 
 ## Current status
 
-P0 through P3 are **complete on the corrective stack**. WBAB has:
+WBAB is no longer an expanding product/platform. The portfolio red-team concluded that its remaining unique value does not justify maintaining a standalone build/orchestration system.
 
-- a proven candidate-source first-party Product Qualification vertical;
-- truthful real-by-default `build`, `package`, and development-signing semantics;
-- structured plan/contract validation;
-- behavioral replacement for superseded implementation-text policy checks;
-- a five-job ordinary CI topology whose remaining gates have explicit decision value;
-- an as-built gate inventory in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`.
+The #58 corrective work was completed because it leaves the historical implementation truthful rather than fixture-driven or overstated. P0 through P3 were validated on exact candidate head `461c2704586a8bcb5d876be30322cb19bff52a60` and integrated through replacement PR #63.
 
-P4 / `RELEASE_QUALIFICATION` is deliberately separate and has **not** started. No current claim is made that exact published release images/artifacts have been qualified as a release set or that WBAB is generally `Production Stable`.
+Fresh pre-merge evidence for #63:
 
-## Proven checkpoints
+- ordinary CI `33643641548` — PASS;
+- Product Qualification `33643641313` — PASS.
 
-- P1 Product Qualification: `04eb9e85805f629fcc2f36ab5f3428920d07be6b`; CI `33620383914`; Product Qualification `33620384011`.
-- P2 build/package: `f0ff0f6ef2ea43cf704733fa6c28a5e7d6e33564`; CI `33628042826`; Product Qualification `33628042831`.
-- P2 signing: `1c986051a078f870ee70c37d5088006b34239534`; CI `33629015926`; Product Qualification `33629015830`.
-- P3.1 plan-contract collapse: `7a075f729257601d15f527b3686bab736cf68095`; CI `33631623609`; regression Product Qualification `33631623580`.
-- P3.2 five-job engineering checkpoint: `4077fbd2d85a1fdd460921e4e589d3f708804961`; CI `33633402860`.
-- P3 documentation/inventory checkpoint: `46db696704bf5f51ae15dcacf2d19aa0128e0200`; CI `33637937692`.
-- P3 closeout checkpoint before deterministic integration fallback: `c903530aad7b5aeb2c4d48ce43637548f337f10c`; CI `33638302757`.
+PR #63 squash-merged to `main` as `5ef09847de2770c2619592453d372f42dcf97eed`.
 
-## Ordinary validation topology
+P4 / `RELEASE_QUALIFICATION` is **cancelled as WBAB product-development work**. No claim is made that exact published release images/artifacts were qualified as a release set.
 
-1. `lint`
-2. `shell-unit` — bounded shell + targeted mocks + retained mocked integration
-3. `contract`
-4. `policy`
-5. `python-unit`
+## Retirement evidence completed
 
-Product Qualification is path-scoped/manual and is required when the changed claim crosses the real build/package/sign/install/runtime product boundary.
+- WinInspect WBAB submodule removed through `SemperSupra/WinInspect-private#366` after exact-head installer-lifecycle run `33641873371` passed; merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`.
+- WineBot architecture corrected through `SemperSupra/WineBot#122`; merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`.
+- Portfolio lessons harvested to `SemperSupra/engineering-governance-private` ADR 0002 through PR #136; merged as `00363c37d5503d49c7435d66128c3af758f0d0a4`.
+- First-pass repository inventory found no other executable WBAB consumer.
+- Superseded WBAB expansion issues have been closed as not planned.
+- Original stacked PRs #59/#60 and old retirement PR #62 have been closed as superseded.
 
-## Execution / delegation correction
+## Preserved evidence vocabulary
 
-Routine mechanical repository operations MUST NOT be returned to the maintainer merely because one interactive connector or UI action is unavailable.
+- `STATIC_CONTRACT`
+- `MOCKED_BEHAVIOR`
+- `INFRASTRUCTURE_SMOKE`
+- `PRODUCT_QUALIFICATION`
+- `RELEASE_QUALIFICATION`
 
-For deterministic, already-authorized operations, prefer:
+A weaker class never implies a stronger class. Strong claims bind to the exact candidate/artifact that actually executed.
 
-```text
-durable GitHub baton
-    -> repository-native deterministic script
-    -> local credentialed executor/agent when local GitHub authority is required
-    -> exact result/evidence written back to GitHub
-```
+## Current retirement branch
 
-The current fallback is `scripts/ops/complete-issue-58-stack.py`.
+`retirement/wbab-retirement-main` is based directly on corrected `main` commit `5ef09847de2770c2619592453d372f42dcf97eed` and contains the retirement-only state intended to land next:
 
-It is intentionally fail-closed and idempotent where practical. It verifies exact PR heads/base state, review/change-request state, checks, and mergeability before mutation.
-
-### Stack-safe integration order
-
-Do **not** squash #59 to `main` first and then retarget #60. #60 is stacked on #59's commit ancestry; squashing the parent first can destroy the shared ancestry and make the child appear to reintroduce parent changes.
-
-The deterministic executor therefore performs:
-
-```text
-validated PR #60 exact head
-    -> mark #60 ready
-    -> squash #60 into its existing parent branch (#59 head branch)
-    -> observe the new combined #59 head
-    -> require a NEW ordinary CI run on that combined head
-    -> require a NEW Product Qualification run on that combined head
-    -> mark #59 ready
-    -> squash the fully revalidated #59 once into main
-    -> verify main advanced
-    -> write exact evidence back to #58
-```
-
-This keeps the stack ancestry intact until the combined candidate has been independently validated and preserves the repository's normal squash-style final integration into `main`.
-
-The script requires `--execute` plus the exact #60 head supplied by the durable #58 baton. That guard prevents a stale local session from silently integrating a changed candidate.
+- `RETIREMENT.md`;
+- retirement-first `README.md`;
+- `docs/RETIREMENT-INVENTORY.md`;
+- retirement-oriented `docs/STATE.md`, `AGENTS.md`, and `docs/CONTEXT_BUNDLE.md`;
+- retired `BACKLOG.md`;
+- further publication/workflow cleanup only after consumer checks make it safe.
 
 ## Current authority boundary
 
-The maintainer has delegated the routine #58 stack-integration mechanics to automation/local-agent execution. Human manual clicking is **not required** for:
+Allowed without new WBAB product authority:
 
-- marking #60 ready for review;
-- merging #60 into the existing #59 parent branch after its exact checks remain green;
-- waiting for and evaluating the new combined-head CI and Product Qualification on #59;
-- marking #59 ready for review;
-- merging the revalidated combined #59 to `main`;
-- writing the resulting exact evidence back to #58.
+- retirement/migration documentation;
+- dependency/reference cleanup with replacement evidence;
+- closing superseded feature work;
+- disabling no-longer-needed CI/publication surfaces after confirming no consumer depends on them;
+- preserving/moving demonstrated-useful lessons;
+- exact-state verification and guarded repository merges.
 
-The executor MUST stop for:
+Stop for:
 
-- unexpected main/head/base drift;
-- failed or missing required validation;
-- changes requested or unresolved review threads;
-- merge conflicts;
-- new credential/authority requirements;
-- release/publication;
-- production signing credentials;
-- destructive/irreversible history operations;
-- unresolved security/licensing/value-classification boundaries.
+- new product/platform feature development;
+- release publication or production signing;
+- destructive history rewrites;
+- deletion of historical evidence;
+- newly discovered live consumer whose replacement path has not been proven;
+- unresolved licensing/security/credential boundaries.
 
-## Resume checkpoint
+## Next bounded actions
 
-Authoritative tracker: **issue #58**.  
-Parent PR: **#59**.  
-Stacked P3 PR: **#60**.  
-Current next executor: **local deterministic script, optionally supervised by the local agent**.  
-Work packet: the latest #58 integration-baton comment.  
-Command: `python scripts/ops/complete-issue-58-stack.py --execute --expected-child-head <exact-head-from-#58-baton>`  
-Human input required for this routine integration: **no**.  
-P4 remains out of scope until deliberately opened as a separate release-qualification workset.
+1. Open `retirement/wbab-retirement-main` against `main` and verify it is retirement-only.
+2. Run the ordinary validation appropriate to its documentation/governance delta and merge when clean.
+3. Close issue #58 as completed/superseded by the final corrective baseline with exact evidence.
+4. Check WBAB release/GHCR image consumers and operational configuration.
+5. Disable release/image publication and optional workflows that no longer protect a retirement invariant.
+6. Update #61 completion checklist and enter cooling-off.
+7. Archive only after #61 completion criteria are satisfied.
