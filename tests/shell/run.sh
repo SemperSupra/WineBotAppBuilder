@@ -66,4 +66,5 @@ run_test tests/shell/test_wbab_lint_dispatch.sh
 run_test tests/shell/test_wbab_test_dispatch.sh
 run_test tests/shell/test_wbab_package_dispatch.sh
 run_test tests/shell/test_wbab_sign_dispatch.sh
+run_test tests/e2e/test_wbab_pipeline_mocked.sh
 echo "[shell-unit] ok"
