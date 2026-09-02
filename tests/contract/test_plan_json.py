@@ -69,10 +69,14 @@ def require_common(plan: dict[str, object], command: str) -> None:
     require(isinstance(source, dict), f"{command}: missing source object")
     require(source.get("type") == "local", f"{command}: expected local source")
     steps = plan.get("steps")
-    require(isinstance(steps, list) and bool(steps), f"{command}: steps must be non-empty")
+    require(
+        isinstance(steps, list) and bool(steps), f"{command}: steps must be non-empty"
+    )
 
 
-def require_project_plan(command: str, expected_policy_keys: set[str]) -> dict[str, object]:
+def require_project_plan(
+    command: str, expected_policy_keys: set[str]
+) -> dict[str, object]:
     plan = run_plan(command, ".")
     require_common(plan, command)
     inputs = plan.get("inputs")
@@ -86,8 +90,12 @@ def require_project_plan(command: str, expected_policy_keys: set[str]) -> dict[s
 
 
 def test_simple_plans() -> None:
-    require_project_plan("lint", {"allow_local_build", "toolchain_image", "toolchain_tag"})
-    require_project_plan("test", {"allow_local_build", "toolchain_image", "toolchain_tag"})
+    require_project_plan(
+        "lint", {"allow_local_build", "toolchain_image", "toolchain_tag"}
+    )
+    require_project_plan(
+        "test", {"allow_local_build", "toolchain_image", "toolchain_tag"}
+    )
 
     smoke = run_plan("smoke", "dist/FakeSetup.exe")
     require_common(smoke, "smoke")
@@ -132,8 +140,12 @@ def require_mode(
 
 def test_mode_plans() -> None:
     require_mode("build", "real", "wbab-build")
-    require_mode("build", "fixture", "wbab-build-fixture", {"WBAB_BUILD_MODE": "fixture"})
-    require_mode("build", "custom", "echo custom-build", {"WBAB_BUILD_CMD": "echo custom-build"})
+    require_mode(
+        "build", "fixture", "wbab-build-fixture", {"WBAB_BUILD_MODE": "fixture"}
+    )
+    require_mode(
+        "build", "custom", "echo custom-build", {"WBAB_BUILD_CMD": "echo custom-build"}
+    )
 
     require_mode("package", "real", "wbab-package")
     require_mode(
@@ -155,8 +167,12 @@ def test_mode_plans() -> None:
     require("dev_cert_dir" in sign_policy, "sign: missing dev_cert_dir")
     require("dev_cert_autogen" in sign_policy, "sign: missing dev_cert_autogen")
     require_mode("sign", "fixture", "wbab-sign-fixture", {"WBAB_SIGN_MODE": "fixture"})
-    require_mode("sign", "custom", "echo custom-sign", {"WBAB_SIGN_CMD": "echo custom-sign"})
-    require_mode("sign", "fixture", "wbab-sign-fixture", {"WBAB_SIGN_USE_DEV_CERT": "0"})
+    require_mode(
+        "sign", "custom", "echo custom-sign", {"WBAB_SIGN_CMD": "echo custom-sign"}
+    )
+    require_mode(
+        "sign", "fixture", "wbab-sign-fixture", {"WBAB_SIGN_USE_DEV_CERT": "0"}
+    )
 
 
 def require_rejected(verb: str, env: dict[str, str], expected_fragment: str) -> None:
@@ -169,7 +185,10 @@ def require_rejected(verb: str, env: dict[str, str], expected_fragment: str) -> 
         text=True,
     )
     require(proc.returncode == 2, f"{verb}: expected rc=2, got {proc.returncode}")
-    require(expected_fragment in proc.stderr, f"{verb}: missing rejection reason {expected_fragment!r}")
+    require(
+        expected_fragment in proc.stderr,
+        f"{verb}: missing rejection reason {expected_fragment!r}",
+    )
 
 
 def test_fail_closed_modes() -> None:
