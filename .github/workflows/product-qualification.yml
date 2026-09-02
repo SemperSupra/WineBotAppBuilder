@@ -1,4 +1,4 @@
-name: Product Qualification (Candidate, Opt-In)
+name: Product Qualification (Candidate)
 
 on:
   workflow_dispatch:
@@ -7,12 +7,19 @@ on:
         description: "WineBot image tag to qualify against"
         required: false
         default: "stable"
+  pull_request:
+    paths:
+      - 'core/**'
+      - 'tools/**'
+      - 'samples/validation-app/**'
+      - 'tests/e2e/product-qualification.sh'
+      - '.github/workflows/product-qualification.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: product-qualification-${{ github.ref }}
+  group: product-qualification-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +40,7 @@ jobs:
 
       - name: Run candidate-source product qualification
         env:
-          WBAB_WINEBOT_TAG: ${{ inputs.winebot_tag }}
+          WBAB_WINEBOT_TAG: ${{ inputs.winebot_tag || 'stable' }}
           WBAB_PQ_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
