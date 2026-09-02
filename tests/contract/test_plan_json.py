@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 WBAB = ROOT_DIR / "tools" / "wbab"
@@ -35,7 +36,7 @@ def run_plan(
     verb: str,
     *args: str,
     env: dict[str, str] | None = None,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     proc = subprocess.run(
         [str(WBAB), "plan", verb, *args],
         cwd=ROOT_DIR,
@@ -62,7 +63,7 @@ def require(condition: bool, message: str) -> None:
         raise AssertionError(message)
 
 
-def require_common(plan: dict[str, object], command: str) -> None:
+def require_common(plan: dict[str, Any], command: str) -> None:
     require(plan.get("version") == "0.1", f"{command}: unexpected plan version")
     require(plan.get("command") == command, f"{command}: wrong command field")
     source = plan.get("source")
@@ -76,7 +77,7 @@ def require_common(plan: dict[str, object], command: str) -> None:
 
 def require_project_plan(
     command: str, expected_policy_keys: set[str]
-) -> dict[str, object]:
+) -> dict[str, Any]:
     plan = run_plan(command, ".")
     require_common(plan, command)
     inputs = plan.get("inputs")
@@ -122,7 +123,7 @@ def require_mode(
     expected_mode: str,
     expected_command: str,
     env: dict[str, str] | None = None,
-) -> dict[str, object]:
+) -> dict[str, Any]:
     plan = run_plan(verb, ".", env=env)
     require_common(plan, verb)
     policy = plan.get("policy")
