@@ -1,6 +1,6 @@
 # WBAB Retirement Dependency Inventory
 
-Status: **first-pass dependency inventory complete; publication/operational verification remains**
+Status: **dependency and publication-consumer inventory complete for accessible portfolio**
 
 Authoritative retirement tracker: #61
 
@@ -10,13 +10,13 @@ This inventory records accessible repository references to WineBotAppBuilder and
 
 | Repository | Reference | Classification | Disposition / evidence |
 | --- | --- | --- | --- |
-| `SemperSupra/WinInspect-private` | former `.gitmodules` entry `external/WineBotAppBuilder` | former build/development dependency | **Detached.** PR #366 removed the gitlink and `.gitmodules` stanza after exact-head installer-lifecycle run `33641873371` succeeded. Merged to `master` as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`. |
+| `SemperSupra/WinInspect-private` | former `.gitmodules` entry `external/WineBotAppBuilder` | former build/development dependency | **Detached.** PR #366 removed the gitlink and `.gitmodules` stanza after exact-head installer-lifecycle run `33641873371` succeeded. Merged as `9ae0afd61d44d6c60187f57e0f3aa293d9c0a74f`. |
 | `SemperSupra/WineBot` | architecture documentation listed WBAB as active build toolchain/ecosystem component | documentation / architecture | **Corrected.** PR #122 identifies WBAB as retiring/reference-only and assigns successor ownership. Merged as `6f4c077ca8f89e73471acd38635d86a4ac4a4961`. |
-| `SemperSupra/WineBotAppBuilder` | self-references across code/docs/workflows | project-internal | Retain only as needed for truthful retirement state, migration evidence, and historical intelligibility. |
+| `SemperSupra/WineBotAppBuilder` | self-references across code/docs/workflows | project-internal | Preserved only as needed for truthful retirement state and historical intelligibility. |
 
-## Search results
+## Repository dependency search
 
-The retirement red-team and implementation pass searched indexed SemperSupra and relevant personal-repository code for:
+The retirement red-team searched indexed SemperSupra and relevant personal-repository code for:
 
 - `WineBotAppBuilder`
 - `WBAB` / `wbab`
@@ -27,7 +27,36 @@ The retirement red-team and implementation pass searched indexed SemperSupra and
 
 Indexed SemperSupra search found only the WineBot architecture reference outside WBAB itself. Indexed personal-repository search found no WBAB references. Separately, the private WinInspect submodule was verified directly and removed through PR #366.
 
-Code-search absence is negative evidence, not proof that every historical/private branch has no reference. Any newly surfaced repository or workflow that claims a WBAB dependency must be checked before archive.
+Code-search absence is negative evidence, not mathematical proof that every historical/private branch has no reference. Any newly surfaced repository or workflow that claims a WBAB dependency during cooling-off must be checked before archive.
+
+## Publication surface and consumer search
+
+The historical WBAB release workflow publishes four GHCR image names:
+
+- `winebotappbuilder-winbuild`
+- `winebotappbuilder-packager`
+- `winebotappbuilder-signer`
+- `winebotappbuilder-linter`
+
+Exact-name searches across accessible SemperSupra repositories and accessible `mark-e-deyoung` repositories returned no external consumers for any of those four images.
+
+Separate searches for `WineBotAppBuilder/releases` returned no references in either accessible namespace.
+
+The public GitHub release list at the retirement checkpoint contains one release:
+
+- tag `v0.3.7`;
+- published 2026-02-18;
+- asset `ValidationSetup.exe`;
+- asset digest `sha256:087fd9892ecf83806c365be8cd5965cca995f94b4bb588972411a80f94f69492`;
+- recorded download count: 1.
+
+No evidence was found that this release asset is an active portfolio dependency.
+
+### Publication disposition
+
+The negative consumer search is sufficient to stop **new** WBAB publication. Retirement does not delete historical release/package state merely to make it disappear.
+
+The archival shutdown branch removes `.github/workflows/release.yml`, eliminating future tag/manual publication of GitHub releases and the four GHCR images.
 
 ## Original-motivation check
 
@@ -63,36 +92,25 @@ PR #63 squash-merged to `main` as `5ef09847de2770c2619592453d372f42dcf97eed`.
 
 P4/release qualification is not part of retirement and is cancelled as WBAB product-development work.
 
-## Classification scheme
+## Operational workflow disposition
 
-- **runtime dependency** — required while the product/application runs;
-- **build dependency** — required to produce product artifacts;
-- **test/qualification dependency** — required only for validation;
-- **documentation/architecture** — descriptive reference, not executable;
-- **stale reference** — no longer used and safe to remove after bounded verification.
+During cooling-off, retain only workflows with plausible retirement value:
 
-## Detachment gate
+- ordinary CI;
+- candidate Product Qualification for a consequential product-path fix if one becomes necessary;
+- issue/PR participation controls.
 
-A dependency is removable when:
+Remove:
 
-1. its actual purpose is identified;
-2. the successor path executes against a real target;
-3. evidence identifies exact source/artifact identities where material;
-4. removal does not silently lower the qualification claim; and
-5. downstream durable docs/workflows no longer direct humans or agents back to WBAB.
+- release publication;
+- opt-in real-E2E infrastructure smoke;
+- opt-in policy trend diagnostics;
+- opt-in TLA/formal contract workflow.
 
-## First-pass conclusion
+Their historical definitions remain in Git history.
 
-No live WBAB code consumer remains in the references found so far. The only concrete downstream code dependency found—WinInspect's submodule—has been removed with replacement evidence, and the only indexed external architecture reference found—WineBot—has been corrected.
+## Inventory conclusion
 
-This is sufficient to proceed with archival preparation. It is not yet sufficient to archive the repository because WBAB release/GHCR publication consumers and project operational configuration still require an explicit final check.
+No live WBAB code, release-asset, or GHCR-image consumer remains in the accessible portfolio evidence found so far.
 
-## Inventory completion condition
-
-The inventory can be declared final when:
-
-- retirement state has landed on `main`;
-- no newly surfaced accessible repository/workflow claims an executable WBAB dependency;
-- WBAB release/image publication consumers have been checked;
-- unnecessary publication/operational surfaces are disabled; and
-- each retained reusable lesson/capability has either a successor owner or an explicit archive-in-place decision linked from #61.
+This satisfies the dependency/publication-consumer portion of archival preparation. The remaining work is to land operational shutdown, verify repository-visible deployment/config references, enter cooling-off, and archive only after the agreed observation period.

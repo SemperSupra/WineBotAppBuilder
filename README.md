@@ -18,11 +18,13 @@ Preferred successor paths are:
 
 The strongest known downstream consumer, WinInspect, has already been detached after exact-head installer-lifecycle validation. See `docs/RETIREMENT-INVENTORY.md`.
 
+WBAB no longer publishes new GitHub releases or GHCR build/package/sign/lint images. The release workflow and obsolete manual diagnostic/formal/infrastructure workflows were removed during archival preparation after the accessible portfolio showed no consumers of those publication surfaces. Existing historical releases and packages are not deleted by this retirement change.
+
 ## Final qualification state
 
 Before retirement, the #58 corrective program established a proven **candidate-source first-party product qualification** path: candidate tool images are built, the real validation app is compiled and tested, a real NSIS installer is produced, development signing is performed and independently verified, the installer is exercised in WineBot, the installed CLI is executed, and an exact deterministic postcondition is verified.
 
-This is materially stronger than WBAB's historical mock/fixture evidence. It is **not release qualification**: exact published image digests and release artifacts have not been qualified as a release set. Retirement intentionally does not continue into a new P4/release-qualification program merely to make WBAB more complete.
+This is materially stronger than WBAB's historical mock/fixture evidence. It is **not release qualification**: exact published image digests and release artifacts were not qualified as a release set. Retirement intentionally does not continue into a new P4/release-qualification program merely to make WBAB more complete.
 
 The accepted testing finding is in `docs/findings/testing-value-red-team-2026-09-02.md`; the corrective plan and final gate inventory are in `docs/TESTING_CORRECTIVE_ACTION_PLAN.md`.
 
@@ -58,21 +60,17 @@ These commands remain documented for historical/reference use during the retirem
 
 `samples/validation-app` is the first-party workload used to exercise the real WBAB/WineBot vertical. It includes a real DLL, CLI, GUI, tests, and NSIS installer.
 
-Its default retirement disposition is **archive in place** unless a successor owner demonstrates a real need for the fixture. Do not migrate it merely to keep it active.
+Its retirement disposition is **archive in place** unless a successor owner later demonstrates a real need for the fixture. Do not migrate it merely to keep it active.
 
-## Final validation architecture
+## Cooling-off validation surface
 
-Ordinary PR CI was reduced during #58 to five distinct gates:
+During cooling-off, the repository intentionally retains only the validation/governance workflows that still protect plausible retirement changes:
 
-1. `lint`
-2. `shell-unit` — bounded shell tests plus retained mocked integration behavior
-3. `contract`
-4. `policy`
-5. `python-unit`
+- ordinary CI for non-documentation code/config changes;
+- candidate Product Qualification for relevant product-path changes;
+- approved-issue / approved-PR participation controls.
 
-The former standalone mocked `e2e-smoke` job was consolidated into `shell-unit`; mocked behavior is not represented as product proof.
-
-Product Qualification is a separate higher-fidelity validator for relevant candidate-source changes. The opt-in `e2e-real` workflow remains an `INFRASTRUCTURE_SMOKE` path unless its invocation supplies the complete product postcondition needed for a stronger claim.
+The release publisher, opt-in real-E2E workflow, policy-trend diagnostic workflow, and TLA opt-in workflow are retired. Their history remains available in Git.
 
 ## Core lessons retained
 
