@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     shellcheck=0.10.0-1 \
     && rm -rf /var/lib/apt/lists/*
 
+# Subsequent checksum-verification pipelines must propagate failures from all
+# commands, not only the final command in a pipeline.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Install Hadolint
 RUN curl -sSL -o /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
     && chmod +x /usr/local/bin/hadolint
