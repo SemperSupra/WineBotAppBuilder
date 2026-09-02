@@ -2,10 +2,44 @@
 set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 wf="${ROOT_DIR}/.github/workflows/release.yml"
+retirement="${ROOT_DIR}/RETIREMENT.md"
 
-echo "[policy] verifying release pipeline integrity..."
+echo "[policy] verifying release/publication policy..."
 
-# Helper for yq validation
+# Retirement changes the protected invariant. While WBAB was active, this
+# policy proved that credentialed publication happened only through the
+# structured release workflow. Once retirement is authoritative, the safer
+# invariant is the opposite: no workflow may retain publication authority.
+if [[ -f "${retirement}" ]]; then
+  grep -qi "feature-frozen" "${retirement}" || {
+    echo "POLICY FAILURE: RETIREMENT.md must declare the repository feature-frozen" >&2
+    exit 1
+  }
+
+  [[ ! -f "${wf}" ]] || {
+    echo "POLICY FAILURE: release.yml must be absent while WBAB is retired" >&2
+    exit 1
+  }
+
+  workflow_dir="${ROOT_DIR}/.github/workflows"
+
+  if grep -R -n -E 'packages:[[:space:]]*write' "${workflow_dir}" --include='*.yml' --include='*.yaml'; then
+    echo "POLICY FAILURE: retired WBAB workflows must not retain packages:write authority" >&2
+    exit 1
+  fi
+
+  if grep -R -n -E 'docker/login-action@|gh[[:space:]]+release[[:space:]]+(create|upload)|--push([[:space:]\\]|$)' \
+      "${workflow_dir}" --include='*.yml' --include='*.yaml'; then
+    echo "POLICY FAILURE: retired WBAB workflows must not contain release/registry publication steps" >&2
+    exit 1
+  fi
+
+  echo "OK: retirement publication shutdown policy satisfied"
+  exit 0
+fi
+
+# Active-project compatibility path retained for historical branches/forks
+# without RETIREMENT.md.
 check_yq() {
   local query="$1"
   local expected="$2"
@@ -18,6 +52,11 @@ check_yq() {
   fi
 }
 
+[[ -f "${wf}" ]] || {
+  echo "POLICY FAILURE: active WBAB state requires release.yml" >&2
+  exit 1
+}
+
 # 1. Structural release authority gates.
 check_yq '.on.push.tags[0]' "v*" "release.yml must trigger on v* tags"
 check_yq '.on | has("workflow_dispatch")' "true" "release.yml must support manual dispatch"
@@ -25,9 +64,6 @@ check_yq '.permissions.contents' "write" "release.yml must have contents:write"
 check_yq '.permissions.packages' "write" "release.yml must have packages:write"
 
 # 2. Structured publication ordering and evidence semantics.
-# Parse the workflow steps as data. Preserve the meaningful authority invariant:
-# candidate Dockerfiles are validated before credentialed registry login/push.
-# Do not pin human-facing step labels or physical YAML line numbers.
 release_steps_json="$(yq eval -o=json '.jobs.release.steps' "${wf}")"
 RELEASE_STEPS_JSON="${release_steps_json}" python3 - <<'PY'
 import json
