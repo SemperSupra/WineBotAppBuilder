@@ -15,9 +15,14 @@ REPO = "SemperSupra/WineBotAppBuilder"
 TRACKER = 58
 PARENT_PR = 59
 CHILD_PR = 60
+PARENT_BRANCH = "corrective/testing-capability-qualification"
 EXPECTED_MAIN = "bd79d45ba20cc70cae9da7625c6b3605c7176655"
 EXPECTED_PARENT_HEAD = "7a075f729257601d15f527b3686bab736cf68095"
-CHECK_TIMEOUT_SECONDS = 20 * 60
+CI_WORKFLOW = "ci.yml"
+PRODUCT_WORKFLOW = "product-qualification.yml"
+CI_TIMEOUT_SECONDS = 20 * 60
+PRODUCT_TIMEOUT_SECONDS = 55 * 60
+RUN_DISCOVERY_TIMEOUT_SECONDS = 3 * 60
 
 
 class WorksetError(RuntimeError):
@@ -122,17 +127,15 @@ query($owner:String!, $name:String!, $number:Int!) {
     return sum(1 for node in nodes if not node["isResolved"])
 
 
-def require_pr(
+def require_open_pr(
     pr: PullRequestState,
     *,
-    expected_head: str,
+    expected_head: str | None = None,
     expected_base: str | None = None,
 ) -> None:
-    if pr.state == "MERGED":
-        return
     if pr.state != "OPEN":
-        raise WorksetError(f"PR #{pr.number} is {pr.state}, expected OPEN or MERGED")
-    if pr.head_sha != expected_head:
+        raise WorksetError(f"PR #{pr.number} is {pr.state}, expected OPEN")
+    if expected_head is not None and pr.head_sha != expected_head:
         raise WorksetError(
             f"PR #{pr.number} head drift: expected {expected_head}, found {pr.head_sha}"
         )
@@ -150,7 +153,7 @@ def require_pr(
 
 
 def mark_ready(pr: PullRequestState, *, execute: bool) -> None:
-    if pr.state == "MERGED" or not pr.is_draft:
+    if not pr.is_draft:
         return
     if not execute:
         print(f"DRY-RUN: gh pr ready {pr.number} --repo {REPO}")
@@ -158,11 +161,11 @@ def mark_ready(pr: PullRequestState, *, execute: bool) -> None:
     run(["gh", "pr", "ready", str(pr.number), "--repo", REPO])
 
 
-def wait_for_checks(number: int, *, execute: bool) -> None:
+def wait_for_pr_checks(
+    number: int, *, execute: bool, timeout_seconds: int = CI_TIMEOUT_SECONDS
+) -> None:
     if not execute:
-        print(
-            f"DRY-RUN: wait for PR #{number} checks (timeout={CHECK_TIMEOUT_SECONDS}s)"
-        )
+        print(f"DRY-RUN: wait for PR #{number} checks (timeout={timeout_seconds}s)")
         return
     run(
         [
@@ -177,11 +180,11 @@ def wait_for_checks(number: int, *, execute: bool) -> None:
             "--interval",
             "10",
         ],
-        timeout=CHECK_TIMEOUT_SECONDS,
+        timeout=timeout_seconds,
     )
 
 
-def latest_ci_run_id(head_sha: str) -> int:
+def latest_workflow_run_id(workflow: str, branch: str) -> int:
     runs = gh_json(
         [
             "run",
@@ -189,39 +192,38 @@ def latest_ci_run_id(head_sha: str) -> int:
             "--repo",
             REPO,
             "--workflow",
-            "ci.yml",
+            workflow,
+            "--branch",
+            branch,
             "--event",
             "pull_request",
             "--limit",
-            "30",
+            "10",
             "--json",
-            "databaseId,headSha",
+            "databaseId",
         ]
     )
-    ids = [
-        int(item["databaseId"])
-        for item in runs
-        if str(item.get("headSha", "")) == head_sha
-    ]
-    return max(ids, default=0)
+    return max((int(item["databaseId"]) for item in runs), default=0)
 
 
-def wait_for_new_ci_run(
-    *,
-    expected_head: str,
+def wait_for_new_workflow_run(
+    workflow: str,
+    branch: str,
     previous_run_id: int,
+    *,
+    timeout_seconds: int,
     execute: bool,
 ) -> int:
     if not execute:
         print(
-            "DRY-RUN: wait for a new pull-request CI run for "
-            f"{expected_head} newer than {previous_run_id}"
+            f"DRY-RUN: wait for new {workflow} run on {branch} "
+            f"newer than {previous_run_id}"
         )
         return 0
 
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + RUN_DISCOVERY_TIMEOUT_SECONDS
     while time.monotonic() < deadline:
-        run_id = latest_ci_run_id(expected_head)
+        run_id = latest_workflow_run_id(workflow, branch)
         if run_id > previous_run_id:
             run(
                 [
@@ -235,20 +237,51 @@ def wait_for_new_ci_run(
                     "--interval",
                     "10",
                 ],
-                timeout=CHECK_TIMEOUT_SECONDS,
+                timeout=timeout_seconds,
             )
             return run_id
         time.sleep(5)
 
     raise WorksetError(
-        "no new pull-request CI run appeared after retargeting PR #60 to main"
+        f"no new {workflow} pull-request run appeared on {branch} "
+        f"after run {previous_run_id}"
     )
+
+
+def require_latest_workflow_success(
+    workflow: str,
+    branch: str,
+    *,
+    timeout_seconds: int,
+    execute: bool,
+) -> int:
+    run_id = latest_workflow_run_id(workflow, branch)
+    if not run_id:
+        raise WorksetError(f"no {workflow} pull-request run found on {branch}")
+    if not execute:
+        print(f"DRY-RUN: require latest {workflow} run {run_id} on {branch} to pass")
+        return run_id
+    run(
+        [
+            "gh",
+            "run",
+            "watch",
+            str(run_id),
+            "--repo",
+            REPO,
+            "--exit-status",
+            "--interval",
+            "10",
+        ],
+        timeout=timeout_seconds,
+    )
+    return run_id
 
 
 def wait_for_mergeability(number: int, expected_head: str) -> PullRequestState:
     last = pr_state(number)
     for _ in range(12):
-        require_pr(last, expected_head=expected_head)
+        require_open_pr(last, expected_head=expected_head)
         if last.mergeable != "UNKNOWN":
             return last
         time.sleep(5)
@@ -260,6 +293,7 @@ def merge_pr(number: int, expected_head: str, *, execute: bool) -> None:
     current = pr_state(number)
     if current.state == "MERGED":
         return
+    require_open_pr(current, expected_head=expected_head)
     if current.mergeable == "CONFLICTING":
         raise WorksetError(f"PR #{number} is conflicting")
     if not execute:
@@ -285,16 +319,6 @@ def merge_pr(number: int, expected_head: str, *, execute: bool) -> None:
     )
 
 
-def retarget_child_to_main(*, execute: bool) -> None:
-    child = pr_state(CHILD_PR)
-    if child.state == "MERGED" or child.base_ref == "main":
-        return
-    if not execute:
-        print(f"DRY-RUN: gh pr edit {CHILD_PR} --repo {REPO} --base main")
-        return
-    run(["gh", "pr", "edit", str(CHILD_PR), "--repo", REPO, "--base", "main"])
-
-
 def tracker_comment(body: str, *, execute: bool) -> None:
     if not execute:
         print("DRY-RUN tracker comment:")
@@ -306,7 +330,14 @@ def tracker_comment(body: str, *, execute: bool) -> None:
     )
 
 
-def success_comment(main_before: str, main_after: str, child_head: str) -> str:
+def success_comment(
+    main_before: str,
+    main_after: str,
+    child_head: str,
+    combined_parent_head: str,
+    ci_run: int,
+    product_run: int,
+) -> str:
     return f"""## #58 deterministic stack integration — completed
 
 Executor: repository-native local script (`scripts/ops/complete-issue-58-stack.py`)
@@ -314,15 +345,19 @@ Authority source: maintainer delegation recorded in the #58 workset baton.
 Execution mode: deterministic `gh` CLI; no UI/manual maintainer step.
 
 - initial main: `{main_before}`
-- PR #59 expected head: `{EXPECTED_PARENT_HEAD}` — merged
-- PR #60 expected head: `{child_head}` — retargeted to `main`, revalidated, merged
+- PR #60 head `{child_head}`: squash-merged into parent branch `{PARENT_BRANCH}`
+- combined PR #59 head: `{combined_parent_head}`
+- combined-head CI run: `{ci_run}` — passed
+- combined-head Product Qualification run: `{product_run}` — passed
+- PR #59: squash-merged to `main`
 - final main: `{main_after}`
-- merge method: squash
 - release/publication performed: **no**
 - production signing credentials used: **no**
 
-The script stopped/failed closed on head/base drift, failed checks, review changes requested,
-unresolved review threads, merge conflicts, or unexpected authority state.
+The child-first integration preserves stacked ancestry until the complete candidate is
+revalidated, then produces one final squash on `main`. The script fails closed on drift,
+failed/missing checks, changes requested, unresolved review threads, conflicts, or an
+unexpected authority state.
 """
 
 
@@ -345,77 +380,135 @@ def execute_workset(*, execute: bool, expected_child_head: str) -> None:
     parent = pr_state(PARENT_PR)
     child = pr_state(CHILD_PR)
 
-    if parent.state != "MERGED" and main_before != EXPECTED_MAIN:
+    if parent.state == "MERGED":
+        if child.state != "MERGED":
+            raise WorksetError("PR #59 is merged while PR #60 is not merged")
+        print("#58 stack is already integrated; no mutation required")
+        return
+
+    if main_before != EXPECTED_MAIN:
         raise WorksetError(
-            f"main drift before parent merge: expected {EXPECTED_MAIN}, found {main_before}"
+            f"main drift before integration: expected {EXPECTED_MAIN}, found {main_before}"
         )
 
-    require_pr(
-        parent,
-        expected_head=EXPECTED_PARENT_HEAD,
-        expected_base="main" if parent.state != "MERGED" else None,
-    )
-    require_pr(child, expected_head=expected_child_head)
+    require_open_pr(parent, expected_base="main")
 
-    mark_ready(parent, execute=execute)
-    if execute:
+    child_was_open = child.state == "OPEN"
+    if child_was_open:
+        if parent.head_sha != EXPECTED_PARENT_HEAD:
+            raise WorksetError(
+                "parent head changed before child integration: "
+                f"expected {EXPECTED_PARENT_HEAD}, found {parent.head_sha}"
+            )
+        require_open_pr(
+            child,
+            expected_head=expected_child_head,
+            expected_base=PARENT_BRANCH,
+        )
+
+        previous_ci = latest_workflow_run_id(CI_WORKFLOW, PARENT_BRANCH)
+        previous_product = latest_workflow_run_id(PRODUCT_WORKFLOW, PARENT_BRANCH)
+
+        mark_ready(child, execute=execute)
+        wait_for_pr_checks(CHILD_PR, execute=execute)
+        if execute:
+            child = wait_for_mergeability(CHILD_PR, expected_child_head)
+            if child.mergeable == "CONFLICTING":
+                raise WorksetError("PR #60 is conflicting")
+        merge_pr(CHILD_PR, expected_child_head, execute=execute)
+
+        if not execute:
+            print(
+                "DRY-RUN: after PR #60 merges into its parent branch, discover the new "
+                "PR #59 head, require fresh CI + Product Qualification, then merge #59"
+            )
+            return
+
+        child = pr_state(CHILD_PR)
+        if child.state != "MERGED":
+            raise WorksetError("PR #60 did not reach MERGED")
+
         parent = pr_state(PARENT_PR)
-        require_pr(parent, expected_head=EXPECTED_PARENT_HEAD, expected_base="main")
+        require_open_pr(parent, expected_base="main")
+        if parent.head_sha == EXPECTED_PARENT_HEAD:
+            raise WorksetError("PR #59 head did not advance after merging PR #60")
+        combined_parent_head = parent.head_sha
 
-    wait_for_checks(PARENT_PR, execute=execute)
+        ci_run = wait_for_new_workflow_run(
+            CI_WORKFLOW,
+            PARENT_BRANCH,
+            previous_ci,
+            timeout_seconds=CI_TIMEOUT_SECONDS,
+            execute=True,
+        )
+        product_run = wait_for_new_workflow_run(
+            PRODUCT_WORKFLOW,
+            PARENT_BRANCH,
+            previous_product,
+            timeout_seconds=PRODUCT_TIMEOUT_SECONDS,
+            execute=True,
+        )
+    elif child.state == "MERGED":
+        if child.head_sha != expected_child_head:
+            raise WorksetError(
+                f"merged PR #60 head drift: expected {expected_child_head}, "
+                f"found {child.head_sha}"
+            )
+        combined_parent_head = parent.head_sha
+        ci_run = require_latest_workflow_success(
+            CI_WORKFLOW,
+            PARENT_BRANCH,
+            timeout_seconds=CI_TIMEOUT_SECONDS,
+            execute=execute,
+        )
+        product_run = require_latest_workflow_success(
+            PRODUCT_WORKFLOW,
+            PARENT_BRANCH,
+            timeout_seconds=PRODUCT_TIMEOUT_SECONDS,
+            execute=execute,
+        )
+    else:
+        raise WorksetError(f"PR #60 is {child.state}, expected OPEN or MERGED")
+
+    require_open_pr(
+        pr_state(PARENT_PR),
+        expected_head=combined_parent_head,
+        expected_base="main",
+    )
+    wait_for_pr_checks(
+        PARENT_PR,
+        execute=execute,
+        timeout_seconds=PRODUCT_TIMEOUT_SECONDS,
+    )
+    parent = pr_state(PARENT_PR)
+    mark_ready(parent, execute=execute)
 
     if execute:
-        parent = wait_for_mergeability(PARENT_PR, EXPECTED_PARENT_HEAD)
-    merge_pr(PARENT_PR, EXPECTED_PARENT_HEAD, execute=execute)
+        parent = wait_for_mergeability(PARENT_PR, combined_parent_head)
+        if parent.mergeable == "CONFLICTING":
+            raise WorksetError("PR #59 is conflicting after child integration")
+    merge_pr(PARENT_PR, combined_parent_head, execute=execute)
 
     if not execute:
-        retarget_child_to_main(execute=False)
-        mark_ready(child, execute=False)
-        wait_for_new_ci_run(
-            expected_head=expected_child_head,
-            previous_run_id=latest_ci_run_id(expected_child_head),
-            execute=False,
-        )
-        merge_pr(CHILD_PR, expected_child_head, execute=False)
         return
 
     parent = pr_state(PARENT_PR)
     if parent.state != "MERGED":
         raise WorksetError("PR #59 did not reach MERGED")
-    main_after_parent = current_main_sha()
-    if main_after_parent == main_before:
+    main_after = current_main_sha()
+    if main_after == main_before:
         raise WorksetError("main did not advance after merging PR #59")
 
-    previous_child_ci = latest_ci_run_id(expected_child_head)
-    retarget_child_to_main(execute=True)
-    child = pr_state(CHILD_PR)
-    require_pr(child, expected_head=expected_child_head, expected_base="main")
-
-    mark_ready(child, execute=True)
-    child = pr_state(CHILD_PR)
-    require_pr(child, expected_head=expected_child_head, expected_base="main")
-
-    wait_for_new_ci_run(
-        expected_head=expected_child_head,
-        previous_run_id=previous_child_ci,
-        execute=True,
-    )
-
-    child = wait_for_mergeability(CHILD_PR, expected_child_head)
-    if child.mergeable == "CONFLICTING":
-        raise WorksetError("PR #60 is conflicting after retarget")
-
-    merge_pr(CHILD_PR, expected_child_head, execute=True)
-
-    child = pr_state(CHILD_PR)
-    if child.state != "MERGED":
-        raise WorksetError("PR #60 did not reach MERGED")
-    main_after = current_main_sha()
-    if main_after == main_after_parent:
-        raise WorksetError("main did not advance after merging PR #60")
-
     tracker_comment(
-        success_comment(main_before, main_after, expected_child_head), execute=True
+        success_comment(
+            main_before,
+            main_after,
+            expected_child_head,
+            combined_parent_head,
+            ci_run,
+            product_run,
+        ),
+        execute=True,
     )
 
 
