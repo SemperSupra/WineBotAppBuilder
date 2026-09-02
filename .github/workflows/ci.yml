@@ -34,7 +34,11 @@ jobs:
 
       - name: Run containerized lint
         run: |
-          export WBAB_ALLOW_LOCAL_BUILD=0
+          # PR/main validation must execute lint against the candidate even when
+          # the published linter image is unavailable to an anonymous runner.
+          # Local candidate-source image construction is deterministic and is a
+          # more faithful validator than failing before lint executes.
+          export WBAB_ALLOW_LOCAL_BUILD=1
           chmod +x scripts/lint.sh scripts/lint-container.sh
           ./scripts/lint.sh
 
