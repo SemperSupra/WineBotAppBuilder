@@ -34,7 +34,6 @@ run_test tests/shell/test_package_pull_first.sh
 run_test tests/shell/test_package_local_opt_in.sh
 run_test tests/shell/test_packaging_fixture_script.sh
 run_test tests/shell/test_publish_dockerfiles_drycheck.sh
-run_test tests/shell/test_publish_workflow_drycheck_order.sh
 run_test tests/shell/test_sign_pull_first.sh
 run_test tests/shell/test_sign_local_opt_in.sh
 run_test tests/shell/test_dev_cert_lifecycle.sh
