@@ -35,10 +35,26 @@ TOKEN="wbab-test-token"
 ) >"${SERVER_OUT}" 2>"${SERVER_ERR}" &
 SERVER_PID=$!
 
-listening_line=""
+PORT=""
 for _ in $(seq 1 100); do
-  listening_line="$(grep -m1 '"'"'"status"'"'": "'"'"listening"'"'"' "${SERVER_OUT}" 2>/dev/null || true)"
-  if [[ -n "${listening_line}" ]]; then
+  PORT="$(python3 - "${SERVER_OUT}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if path.exists():
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("status") == "listening":
+            print(event["port"])
+            break
+PY
+)"
+  if [[ -n "${PORT}" ]]; then
     break
   fi
   if ! kill -0 "${SERVER_PID}" 2>/dev/null; then
@@ -49,14 +65,12 @@ for _ in $(seq 1 100); do
   sleep 0.05
 done
 
-[[ -n "${listening_line}" ]] || {
+[[ -n "${PORT}" ]] || {
   echo "Timed out waiting for wbabd listening event" >&2
   cat "${SERVER_OUT}" >&2 || true
   cat "${SERVER_ERR}" >&2 || true
   exit 1
 }
-
-PORT="$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["port"])' <<< "${listening_line}")"
 
 python3 - "${PORT}" "${TOKEN}" <<'PY'
 import http.client
