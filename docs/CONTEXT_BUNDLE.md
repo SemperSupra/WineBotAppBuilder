@@ -1,13 +1,16 @@
 # CONTEXT_BUNDLE (read this first)
 
-## Current milestone
+## Current milestone (reconciled 2026-10-23)
 
-**WBAB cooling-off — issue #61.**
+**WBAB retirement archive-gate assessment — historical issue #61.**
 
-WBAB is feature-frozen and operationally retired as a standalone build/orchestration platform. Do not resume historical feature-roadmap work merely because an agent or human is told to `continue`.
+WBAB is feature-frozen and operationally retired as a standalone build/orchestration platform. Do not resume historical feature-roadmap work merely because an agent or human is told to `continue`. Retirement completion/publication shutdown already landed on `main` through PRs #63–#66.
 
 Cooling-off start: **2026-09-02**  
-Earliest archive review: **2026-09-16**
+Archive eligibility date: **2026-09-16** (elapsed; archive criteria not yet freshly verified)  
+Last confirmed `main`: `bd1e6e06f674fb90ece1c8185ff7d47cdc83b9bd` (remote GitHub observation; not a local-worktree census)
+
+Issue #61 is preserved as historical authority, but GitHub Issues currently return HTTP 410 (disabled). The live, non-destructive retirement-state correction is draft PR #75; do not assume the issue is a writable DLE or silently re-enable settings.
 
 ## Durable authority
 
@@ -109,9 +112,9 @@ At or after **2026-09-16**, perform the archive-gate review. Archive if:
 
 If a real dependency appears, do not broadly revive WBAB. Open a bounded exception under #61 and test the narrow need against the preferred successor architecture in `RETIREMENT.md`.
 
-## Next bounded action
+## Next bounded action (2026-10-23)
 
-No implementation action is currently justified. The next planned action is the **archive-gate review on or after 2026-09-16**, unless a real dependency or security signal appears sooner.
+Perform the overdue **archive-gate review**, not a product-development sprint. Independently recheck current consumers and disabled release-publication surfaces against `RETIREMENT.md`; reconcile surviving remote branch commits and actual local worktrees/stashes before any destructive cleanup. Reconfirm all completion gates, then obtain the required decision before archival. The date alone does not authorize archive, branch pruning, or reactivation. Preserve historical receipts as dated evidence.
 
 ## Stop conditions
 

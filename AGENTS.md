@@ -106,9 +106,13 @@ Do not run expensive validation for appearance's sake.
 - [ ] `docs/STATE.md` and `docs/RETIREMENT-INVENTORY.md` are updated when current retirement state materially changes.
 - [ ] No release/publication/production-signing authority is implied.
 
-## Current next action
+## Current next action (reconciled 2026-10-22)
 
-Work from `retirement/wbab-retirement-main`, which is based on corrected `main` and carries the retirement-only documentation/state delta. After that delta lands, verify release/GHCR consumers and disable unnecessary publication/optional workflows before cooling-off.
+The retirement correction, publication shutdown, and cooling-off steps landed on `main` through PRs #63-#66. The older `retirement/wbab-retirement-main` branch is historical **and is not a continuation instruction**. The repository remains feature-frozen; at the 2026-10-22 remote check its default branch was `bd1e6e06f674fb90ece1c8185ff7d47cdc83b9bd` and it was not archived.
+
+The September 16 archive-review eligibility date has passed. The next bounded work is a **fresh archive-gate review** using `RETIREMENT.md` completion criteria, current consumer/dependency and publication evidence, and preservation of remote/local unique work. Issue #61 is the historical authority, but the repository's Issues feature currently returns 410 (disabled); do not treat inaccessible issue text as live validation or silently restore/change issue settings.
+
+Do not reactivate release/publication or revive the feature roadmap. Do not prune divergent/squash-merged branches, delete local worktrees, or archive merely because the eligibility date passed; first record evidence, preserve unique state, and verify all retirement conditions. Historical validation receipts remain dated evidence, not October requalification.
 
 ## Interruption / resumption
 

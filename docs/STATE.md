@@ -1,11 +1,17 @@
 # Project State
 
-**Current date:** 2026-09-02  
-**Current program:** issue #61 — retire WBAB and migrate remaining capabilities  
-**Status:** cooling off / feature-frozen  
-**Current main:** `0171d20b9847d0e599dbf7ddb122cbd96bdc8b6b`  
+**Last reconciled:** 2026-10-22 (targeted read-only remote audit; local worktrees not inspected)  
+**Program:** WBAB retirement / archive-gate assessment, historical issue #61  
+**Status:** feature-frozen, release publication disabled by prior retirement changes, not yet archived  
+**Observed main at audit:** `bd1e6e06f674fb90ece1c8185ff7d47cdc83b9bd` (PR #66 cooling-off commit)  
 **Cooling-off start:** 2026-09-02  
-**Earliest archive review:** 2026-09-16
+**Archive eligibility date:** 2026-09-16; date reached, full gate **not yet verified**
+
+> The earlier September 2 retirement baseline and receipt identities below remain historical evidence. The October audit did not independently requalify product builds, prove absence of newly introduced consumers, or inspect local Git worktrees. GitHub Issues are currently disabled (issue #61 returns HTTP 410); references to #61 preserve history but are not a presently reachable writable tracker.
+
+## October 22 next action
+
+Reconcile the exact archive conditions in `RETIREMENT.md` with **current** consumer evidence, publication workflow configuration, remote branches (15 non-main remote branches observed; many divergent by commit identity), and any local worktrees/unpushed work. Preserve unique history and establish a durable permitted handoff before archive or branch deletion. Do not restart WBAB platform development to clear the backlog.
 
 ## Final truthful product baseline
 
@@ -81,6 +87,6 @@ Until 2026-09-16:
 
 At or after 2026-09-16, archive if no new dependency or unique capability signal appears and issue #61 completion criteria remain satisfied.
 
-## Next bounded action
+## Next bounded action (reconciled)
 
-No additional implementation is justified solely to keep work moving. The next meaningful action is the archive-gate review at or after 2026-09-16, unless a real dependency/security signal appears sooner.
+Perform the overdue archive-gate review without reopening product development. Verify present consumers, publication shutdown, retained history, and local worktrees before deciding whether to archive. This October documentation candidate is **not** itself authorization to archive, delete branches, or change issue settings.
